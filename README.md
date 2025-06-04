@@ -3,9 +3,11 @@
 A desktop app for organizing and launching Nintendo 3DS games.  
 Built with **React**, **Three.js**, and **Electron**, it features a 3D interactive shelf, auto-detection of ROMs and emulators, and integrated sound effects for a polished feel.
 
-![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)
+![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/License-CC%20BY--NC--ND%204.0-lightgrey.svg)
 
-This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License. You may share and adapt the work, but commercial use is not permitted.
+This project is licensed under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License.  
+You may share the work with attribution, but **modification or commercial use is not permitted**.
+
 
 >  Emulators and ROMs are not included. The app only supports local files.
 
