@@ -40,10 +40,20 @@ roms/           → [IGNORED] Place your game ROMs here
 src/assets/cover-art/  → Uploaded game cover images
 ```
 
-
-> Example paths the app expects:
-> - `emulators/citra/citra-qt.exe`
-> - `roms/3ds/GameTitle.3ds`
+> ** Folder Setup Required**  
+> To ensure the app functions correctly, you must manually create the following directories:
+>
+> ```
+> emulators/citra/      # Place your emulator executable here (e.g. citra-qt.exe)
+> roms/3ds/             # Place your game ROMs here (e.g. GameTitle.3ds)
+> ```
+>
+> **Expected Example Paths:**
+>
+> ```
+> emulators/citra/citra-qt.exe
+> roms/3ds/GameTitle.3ds
+> ```
 
 ---
 
