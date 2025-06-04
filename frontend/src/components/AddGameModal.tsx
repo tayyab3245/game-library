@@ -183,7 +183,8 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) {
-                const filePath = (f as any).path || f.name;
+                // Electron exposes the absolute path via the `path` property
+                const filePath = (f as any).path || "";
                 setForm((prev) => ({ ...prev, romPath: filePath }));
                 setRomName(f.name);
               }
@@ -199,6 +200,19 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
               }}
             >
               {romName}
+            </div>
+          )}
+          {form.romPath && (
+            <div
+              style={{
+                fontSize: 12,
+                color: "#888",
+                marginTop: 2,
+                textAlign: "left",
+                wordBreak: "break-all",
+              }}
+            >
+              {form.romPath}
             </div>
           )}
         </div>
@@ -221,7 +235,7 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) {
-                const filePath = (f as any).path || f.name;
+                const filePath = (f as any).path || "";
                 setForm((prev) => ({ ...prev, emuPath: filePath }));
                 setEmuName(f.name);
               }
@@ -237,6 +251,19 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
               }}
             >
               {emuName}
+            </div>
+          )}
+          {form.emuPath && (
+            <div
+              style={{
+                fontSize: 12,
+                color: "#888",
+                marginTop: 2,
+                textAlign: "left",
+                wordBreak: "break-all",
+              }}
+            >
+              {form.emuPath}
             </div>
           )}
         </div>

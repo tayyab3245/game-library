@@ -2,7 +2,7 @@
   "name": "game-library-frontend",
   "version": "1.0.0",
   "private": true,
-  "main": "../electron.js",
+  "main": "electron.js",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",

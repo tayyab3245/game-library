@@ -1,4 +1,4 @@
-// C:\Dev\game-library\preload.js
+
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('launcherAPI', {

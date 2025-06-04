@@ -1,5 +1,4 @@
-// C:\Dev\game-library\electron.js
-
+console.log("🚀 Electron main process starting...");
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path  = require('path');
 const fs    = require('fs');
@@ -26,6 +25,7 @@ const findEmu = platform => {
 };
 
 function createWindow () {
+  console.log("🪟 Creating main window...");
   const win = new BrowserWindow({
     width: 1280, height: 800,
     webPreferences: {
@@ -37,6 +37,9 @@ function createWindow () {
   const dev = 'http://localhost:3000';
   const prod = `file://${path.join(ROOT, 'frontend', 'build', 'index.html')}`;
   win.loadURL(app.isPackaged ? prod : dev);
+  
+  console.log("Loading URL:", target);
+  win.loadURL(target);
 
   if (!app.isPackaged) {
     win.webContents.openDevTools({ mode: 'detach' });
