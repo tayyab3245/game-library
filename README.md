@@ -100,7 +100,7 @@ These **are required** for the shelf to render properly. You can replace them wi
 
 Looking for more box art?  
 You can find high-quality game covers here:  
->**[The Cover Project – Nintendo 3DS (P)](https://www.thecoverproject.net/view.php?cat_id=54&view=p)
+>[The Cover Project – Nintendo 3DS (P)](https://www.thecoverproject.net/view.php?cat_id=54&view=p)
 
 
 
