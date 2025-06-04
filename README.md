@@ -35,9 +35,9 @@ This project is licensed under the Creative Commons Attribution-NonCommercial 4.
 
 ```
 frontend/       → React UI (3D shelf, overlays)
-emulators/      → [IGNORED] Place your emulator executables here
+emulators/      → [IGNORED] Place your emulator executables here (e.g. Citra for 3DS)
 roms/           → [IGNORED] Place your game ROMs here
-public/covers/  → Uploaded game cover images
+src/assets/cover-art/  → Uploaded game cover images
 ```
 
 
@@ -52,7 +52,8 @@ public/covers/  → Uploaded game cover images
 ###  Install dependencies
 
 ```
-cd frontend
+git clone https://github.com/tayyab3245/game-library.git
+cd game-library/frontend
 npm install
 ```
 ###  Start the frontend in dev mode
@@ -68,7 +69,7 @@ npm run build
 ###  Start backend (for cover uploads & DB)
    
 ```
-cd backend
+cd ../backend
 npm install
 npx nodemon server.js
 ```
