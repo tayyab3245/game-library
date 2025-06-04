@@ -93,6 +93,15 @@ npx nodemon server.js
 - **Audio files:** Located in `src/assets/audio`
 - **Cover art:** Stored in `frontend/assets/cover-art`
 
+### Demo Cover Art
+
+This project includes a small set of 3DS game covers in `frontend/assets/cover-art/` for demonstration purposes only.  
+These **are required** for the shelf to render properly. You can replace them with your own covers as needed.
+
+Looking for more box art?  
+You can find high-quality game covers here:  
+> [The Cover Project – Nintendo 3DS (P)](https://www.thecoverproject.net/view.php?cat_id=54&view=p)
+
 
 
 
