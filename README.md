@@ -1,6 +1,6 @@
 # Game Shelf
 
-A desktop app for organizing and launching Nintendo 3DS and Switch games.  
+A desktop app for organizing and launching Nintendo 3DS games.  
 Built with **React**, **Three.js**, and **Electron**, it features a 3D interactive shelf, auto-detection of ROMs and emulators, and integrated sound effects for a polished feel.
 
 ![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)
