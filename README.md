@@ -48,6 +48,7 @@ src/assets/cover-art/  → Uploaded game cover images
 ---
 
 ##  Getting Started
+> ⚠️ This project is a personal launcher and does **not** include game files or emulators. You must supply your own.
 
 ###  Install dependencies
 
@@ -82,7 +83,7 @@ npx nodemon server.js
 - **Audio files:** Located in `src/assets/audio`
 - **Cover art:** Stored in `frontend/assets/cover-art`
 
-> ⚠️ This project is a personal launcher and does **not** include game files or emulators. You must supply your own.
+
 
 
 
