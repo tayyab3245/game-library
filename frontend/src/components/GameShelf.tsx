@@ -215,7 +215,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
         if (selected.current !== hit) {
           clearSelect();
           selected.current = hit;
-          // show outline
+          // show bold, inward brackets
           const out = hit.userData.outline as THREE.Object3D;
           if (out) out.visible = true;
           selected.current.scale.set(1.35, 1.35, 1.35); // fine tuned 
@@ -353,15 +353,42 @@ const GameShelf: React.FC<GameShelfProps> = ({
           shadow.rotation.y = Math.PI;
           mesh.userData.shadow = shadow;
           shelf.current.add(shadow);
-          // create outline around shadow
-          const outlineGeo = new THREE.EdgesGeometry(shadowGeo);
-          const outline = new THREE.LineSegments(
-            outlineGeo,
-            new THREE.LineBasicMaterial({ color: 0xffffff })
-          );
-          outline.visible = false;
-          mesh.userData.outline = outline;
-          shelf.current.add(outline);
+          // create corner brackets (four "L" shapes) around shadow
+          const bracketGroup = new THREE.Group();
+          const bracketLength = Math.min(sw, sh) * 0.2;
+          const mat = new THREE.LineBasicMaterial({ color: 0xffa500 });
+
+          // helper to create a thick, inward-pointing "L" at given corner
+          const makeBracket = (cx: number, cy: number) => {
+            const dirX = cx < 0 ? 1 : -1;
+            const dirY = cy < 0 ? 1 : -1;
+            const thickness = bracketLength * 0.2;
+            const depth = thickness; // small Z-depth for visibility
+            const group = new THREE.Group();
+
+            // Horizontal segment
+            const geomH = new THREE.BoxGeometry(bracketLength, thickness, depth);
+            const meshH = new THREE.Mesh(geomH, new THREE.MeshBasicMaterial({ color: 0xffa500 }));
+            meshH.position.set(cx + (dirX * bracketLength) / 2, cy, 0);
+            group.add(meshH);
+
+            // Vertical segment
+            const geomV = new THREE.BoxGeometry(thickness, bracketLength, depth);
+            const meshV = new THREE.Mesh(geomV, new THREE.MeshBasicMaterial({ color: 0xffa500 }));
+            meshV.position.set(cx, cy + (dirY * bracketLength) / 2, 0);
+            group.add(meshV);
+
+            return group;
+          };
+
+          // corners: (±sw/2, ±sh/2)
+          bracketGroup.add(makeBracket(-sw / 2, -sh / 2)); // bottom-left
+          bracketGroup.add(makeBracket(sw / 2, -sh / 2));  // bottom-right
+          bracketGroup.add(makeBracket(sw / 2, sh / 2));   // top-right
+          bracketGroup.add(makeBracket(-sw / 2, sh / 2));  // top-left
+          bracketGroup.visible = false;
+          mesh.userData.outline = bracketGroup;
+          shelf.current.add(bracketGroup);
         }
 
         // Now mesh points to our box; next we’ll update its material (if needed),
@@ -422,10 +449,12 @@ const GameShelf: React.FC<GameShelfProps> = ({
           const shadow = m.userData.shadow as THREE.Mesh;
           // Place shadow at height equal to box center, behind box along -Z
           shadow.position.set(cursor + half, 0, -boxD / 2 - 0.1 );
-          // match outline to shadow
-          const outline = m.userData.outline as THREE.LineSegments;
+          // match bracket position/rotation to shadow
+          const outline = m.userData.outline as THREE.Object3D;
           outline.position.copy(shadow.position);
+          // ensure outline rotation matches shadow orientation
           outline.rotation.copy(shadow.rotation);
+          outline.visible = selected.current === m;
           cursor += w + pad + GAP + 2.5 ;  // space between each game object + container
     });
 
