@@ -173,6 +173,9 @@ const GameShelf: React.FC<GameShelfProps> = ({
       if (!selected.current) return;
       selected.current.scale.set(1, 1, 1);
       selected.current.rotation.y = 0;
+      // hide outline if present
+      const prevOutline = selected.current.userData.outline as THREE.Object3D;
+      if (prevOutline) prevOutline.visible = false;
       selected.current = null;
       onSelect?.(null);
     };
@@ -212,7 +215,10 @@ const GameShelf: React.FC<GameShelfProps> = ({
         if (selected.current !== hit) {
           clearSelect();
           selected.current = hit;
-          selected.current.scale.set(1.15, 1.15, 1.15);
+          // show outline
+          const out = hit.userData.outline as THREE.Object3D;
+          if (out) out.visible = true;
+          selected.current.scale.set(1.35, 1.35, 1.35); // fine tuned 
           onSelect?.(meshes.current.indexOf(hit));
         }
         mode = 'rotate';
@@ -347,7 +353,16 @@ const GameShelf: React.FC<GameShelfProps> = ({
           shadow.rotation.y = Math.PI;
           mesh.userData.shadow = shadow;
           shelf.current.add(shadow);
-      }
+          // create outline around shadow
+          const outlineGeo = new THREE.EdgesGeometry(shadowGeo);
+          const outline = new THREE.LineSegments(
+            outlineGeo,
+            new THREE.LineBasicMaterial({ color: 0xffffff })
+          );
+          outline.visible = false;
+          mesh.userData.outline = outline;
+          shelf.current.add(outline);
+        }
 
         // Now mesh points to our box; next we’ll update its material (if needed),
         // and position both box and its shadow in the layout.
@@ -407,6 +422,10 @@ const GameShelf: React.FC<GameShelfProps> = ({
           const shadow = m.userData.shadow as THREE.Mesh;
           // Place shadow at height equal to box center, behind box along -Z
           shadow.position.set(cursor + half, 0, -boxD / 2 - 0.1 );
+          // match outline to shadow
+          const outline = m.userData.outline as THREE.LineSegments;
+          outline.position.copy(shadow.position);
+          outline.rotation.copy(shadow.rotation);
           cursor += w + pad + GAP + 2.5 ;  // space between each game object + container
     });
 
