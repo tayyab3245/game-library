@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry';
 import SoundManager from '../utils/SoundManager';
 
 export interface GameShelfProps {
@@ -313,17 +314,35 @@ const GameShelf: React.FC<GameShelfProps> = ({
       let mesh = meshes.current[i];
         if (!mesh) {
           // 1) Create the box itself
-          const geo = new THREE.BoxGeometry(boxW, boxH, boxD);
-          mesh = new THREE.Mesh(geo);
+          // use RoundedBoxGeometry for beveled edges
+          const bevelRadius = Math.min(boxW, boxH) * 0.02; // game container edge bevel
+          const geo = new RoundedBoxGeometry(boxW, boxH, boxD, 16, bevelRadius);
+          mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+
           mesh.userData.ph = Math.random() * Math.PI * 2;
           shelf.current.add(mesh);
           meshes.current[i] = mesh;
 
+          // spacing: leave padding around each object
+          mesh.userData.padding = bevelRadius * 2;
           // 2) Create a simple “wall" behind this box
-          const shadowGeo = new THREE.PlaneGeometry(boxW * 1.40, boxH * 1.50);
+          // create a rounded-rectangle shape for beveled shadow
+          const sw = boxW * 1.6, sh = boxH * 1.6;
+          const radius = Math.min(sw, sh) * 0.1; // container bevel amount
+          const shape = new THREE.Shape();
+          shape.moveTo(-sw/2 + radius, -sh/2);
+          shape.lineTo(sw/2 - radius, -sh/2);
+          shape.quadraticCurveTo(sw/2, -sh/2, sw/2, -sh/2 + radius);
+          shape.lineTo(sw/2, sh/2 - radius);
+          shape.quadraticCurveTo(sw/2, sh/2, sw/2 - radius, sh/2);
+          shape.lineTo(-sw/2 + radius, sh/2);
+          shape.quadraticCurveTo(-sw/2, sh/2, -sw/2, sh/2 - radius);
+          shape.lineTo(-sw/2, -sh/2 + radius);
+          shape.quadraticCurveTo(-sw/2, -sh/2, -sw/2 + radius, -sh/2);
+          const shadowGeo = new THREE.ShapeGeometry(shape);
           const shadow = new THREE.Mesh(
             shadowGeo,
-            new THREE.MeshBasicMaterial({ color: 0x000000, opacity: 0.1, transparent: true, side: THREE.DoubleSide })
+            new THREE.MeshBasicMaterial({ color: 0x000000, opacity: 0.03, transparent: true, side: THREE.DoubleSide })
           );
           shadow.rotation.y = Math.PI;
           mesh.userData.shadow = shadow;
@@ -368,13 +387,17 @@ const GameShelf: React.FC<GameShelfProps> = ({
     // Layout: center row with gaps
     const all = meshes.current;
     const totalWidth =
-      all.reduce((sum, m) => sum + ((m.userData.actualWidth as number) || frontWidthUnits), 0) +
-      Math.max(0, all.length - 1) * (frontWidthUnits * 0.25);
+      all.reduce((sum, m) => {
+        const w = (m.userData.actualWidth as number) || frontWidthUnits;
+        const pad = (m.userData.padding as number) || 0;
+        return sum + w + pad;
+      }, 0) + Math.max(0, all.length - 1) * (GAP + (all[0]?.userData.padding || 0));
 
     let cursor = -totalWidth / 2;
       all.forEach((m) => {
           const w = (m.userData.actualWidth as number) || frontWidthUnits;
-          const half = w / 2;
+          const pad = (m.userData.padding as number) || 0;
+          const half = (w + pad) / 2;
           const boxH = (m.userData.actualHeight as number);
           const boxD = (m.userData.actualDepth as number);
           // Position box on “ground” (y=0)
@@ -383,8 +406,8 @@ const GameShelf: React.FC<GameShelfProps> = ({
           // Position vertical shadow “wall” behind box
           const shadow = m.userData.shadow as THREE.Mesh;
           // Place shadow at height equal to box center, behind box along -Z
-          shadow.position.set(cursor + half, 0, -boxD / 2 - 4 );
-          cursor += w + frontWidthUnits * 0.25;
+          shadow.position.set(cursor + half, 0, -boxD / 2 - 0.1 );
+          cursor += w + pad + GAP + 2.5 ;  // space between each game object + container
     });
 
   }, [textures, frontWidthUnits, frontHeightUnits]);
