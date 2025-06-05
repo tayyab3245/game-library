@@ -2,7 +2,7 @@
   "name": "game-library-frontend",
   "version": "1.0.0",
   "private": true,
-  "main": "electron.js",
+  "main": "../electron.js",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
@@ -24,7 +24,7 @@
     "@types/three": "^0.176.0",
     "concurrently": "^8.2.0",
     "cross-env": "^7.0.3",
-    "electron": "^36.3.2",
+    "electron": "^29.0.0",
     "react-beautiful-dnd": "^13.1.1",
     "wait-on": "^7.0.1"
   },

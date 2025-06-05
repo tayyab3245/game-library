@@ -1,17 +1,19 @@
-console.log("🚀 Electron main process starting...");
+// C:\Dev\game-library\electron.js
+
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path  = require('path');
 const fs    = require('fs');
 const { spawn } = require('child_process');
 
-
+// At runtime, __dirname === C:\Dev\game-library
 const ROOT   = __dirname;
-const EMUS   = path.join(ROOT, 'emulators');          
-const ROMS   = path.join(ROOT, 'roms');               
+const EMUS   = path.join(ROOT, 'emulators');
+const ROMS   = path.join(ROOT, 'roms');
 const is3DS  = f => ['.3ds', '.cia'].some(ext => f.toLowerCase().endsWith(ext));
 
-
+// Utility to check file existence
 const fileExists = p => fs.existsSync(p) && fs.statSync(p).isFile();
+
 const findEmu = platform => {
   if (platform === '3DS') {
     const candidate = path.join(EMUS, 'citra', 'citra-qt.exe');
@@ -25,20 +27,21 @@ const findEmu = platform => {
 };
 
 function createWindow () {
-  console.log("🪟 Creating main window...");
   const win = new BrowserWindow({
-    width: 1280, height: 800,
+    width: 1280,
+    height: 800,
     webPreferences: {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
   });
 
-  const dev = 'http://localhost:3000';
-  const prod = `file://${path.join(ROOT, 'frontend', 'build', 'index.html')}`;
-  win.loadURL(app.isPackaged ? prod : dev);
-  
-  console.log("Loading URL:", target);
+  // Development (localhost:3000) vs. production (load built index.html)
+  const devURL  = 'http://localhost:3000';
+  const prodURL = `file://${path.join(ROOT, 'frontend', 'build', 'index.html')}`;
+
+  // If packaged, load the built React files; otherwise load create-react-app dev server
+  const target = app.isPackaged ? prodURL : devURL;
   win.loadURL(target);
 
   if (!app.isPackaged) {
@@ -46,13 +49,13 @@ function createWindow () {
   }
 }
 
+// IPC handlers
 
 ipcMain.handle('fs:exists', (_e, absPath) => {
   return fileExists(absPath);
 });
 
 ipcMain.handle('launcher:autoDetect', (_e, title, platform) => {
-
   const consoleDir = path.join(ROMS, platform.toLowerCase());
   let romPath = null;
   if (fs.existsSync(consoleDir)) {
@@ -62,13 +65,12 @@ ipcMain.handle('launcher:autoDetect', (_e, title, platform) => {
       romPath = path.join(consoleDir, match);
     }
   }
-
-
   const emuPath = findEmu(platform) || null;
   return { romPath, emuPath };
 });
 
 ipcMain.handle('launcher:play', (_e, emuPath, romPath) => {
+  console.log("📢 [main] got launcher:play →", { emuPath, romPath });
   if (!fileExists(emuPath) || !fileExists(romPath)) {
     return { ok: false, error: 'ROM or Emulator missing' };
   }
@@ -80,8 +82,12 @@ ipcMain.handle('launcher:play', (_e, emuPath, romPath) => {
   }
 });
 
+// Bootstrapping
 
 app.whenReady().then(createWindow);
-app.on('window-all-closed', () => { 
-  if (process.platform !== 'darwin') app.quit(); 
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
 });

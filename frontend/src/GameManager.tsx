@@ -73,7 +73,7 @@ export default function GameManager() {
         setRomExists(false);
         setEmuExists(false);
       });
-  }, [selGame]);
+  }, [selGame?.romPath, selGame?.emuPath]);
 
   const refreshAndClear = () => {
     setSelIdx(null);
