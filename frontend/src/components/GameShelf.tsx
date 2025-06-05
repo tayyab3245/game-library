@@ -128,8 +128,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
   const GAP   = BOX_W * 0.25;
   const HOVER = BOX_H * 0.03;
 
-  /* ───────────────────────────────────────────────────────────────────────── */
-  /* 4. INIT: scene + camera + pointer + hover  (run only once, on mount)     */
+  /* 4. INIT: scene + camera + pointer + hover  (run only once, on mount)*/
   useEffect(() => {
     if (!container.current) return;
     if (textures.length === 0) return; // skip initialization if no covers
@@ -291,7 +290,6 @@ const GameShelf: React.FC<GameShelfProps> = ({
     };
   }, []); // ← run only once on mount
 
-  /* ───────────────────────────────────────────────────────────────────────── */
   /* 5. TEXTURE LOADING + MESH UPDATE (runs whenever `textures` actually changes) */
   useEffect(() => {
     if (!renderer.current) return;
@@ -312,14 +310,30 @@ const GameShelf: React.FC<GameShelfProps> = ({
       const boxD = SPINE_3DS * scale * DEPTH_FACTOR;   // thinner spine
 
       /* 5b. Create or reuse mesh */
-      if (!meshes.current[i]) {
-        const geo = new THREE.BoxGeometry(boxW, boxH, boxD);
-        const m = new THREE.Mesh(geo);
-        m.userData.ph = Math.random() * Math.PI * 2;
-        shelf.current.add(m);
-        meshes.current[i] = m;
+      let mesh = meshes.current[i];
+        if (!mesh) {
+          // 1) Create the box itself
+          const geo = new THREE.BoxGeometry(boxW, boxH, boxD);
+          mesh = new THREE.Mesh(geo);
+          mesh.userData.ph = Math.random() * Math.PI * 2;
+          shelf.current.add(mesh);
+          meshes.current[i] = mesh;
+
+          // 2) Create a simple “wall" behind this box
+          const shadowGeo = new THREE.PlaneGeometry(boxW * 1.40, boxH * 1.50);
+          const shadow = new THREE.Mesh(
+            shadowGeo,
+            new THREE.MeshBasicMaterial({ color: 0x000000, opacity: 0.1, transparent: true, side: THREE.DoubleSide })
+          );
+          shadow.rotation.y = Math.PI;
+          mesh.userData.shadow = shadow;
+          shelf.current.add(shadow);
       }
-      const mesh = meshes.current[i];
+
+        // Now mesh points to our box; next we’ll update its material (if needed),
+        // and position both box and its shadow in the layout.
+        mesh = meshes.current[i];
+
 
       /* 5c. Load texture if URL changed */
       if (mesh.userData.url !== url) {
@@ -358,17 +372,25 @@ const GameShelf: React.FC<GameShelfProps> = ({
       Math.max(0, all.length - 1) * (frontWidthUnits * 0.25);
 
     let cursor = -totalWidth / 2;
-    all.forEach((m) => {
-      const w = (m.userData.actualWidth as number) || frontWidthUnits;
-      const half = w / 2;
-      m.position.set(cursor + half, 0, 0);
-      m.userData.homeY = m.position.y; // baseline
-      cursor += w + frontWidthUnits * 0.25;
+      all.forEach((m) => {
+          const w = (m.userData.actualWidth as number) || frontWidthUnits;
+          const half = w / 2;
+          const boxH = (m.userData.actualHeight as number);
+          const boxD = (m.userData.actualDepth as number);
+          // Position box on “ground” (y=0)
+          m.position.set(cursor + half, 0, 0);
+          m.userData.homeY = 0;
+          // Position vertical shadow “wall” behind box
+          const shadow = m.userData.shadow as THREE.Mesh;
+          // Place shadow at height equal to box center, behind box along -Z
+          shadow.position.set(cursor + half, 0, -boxD / 2 - 4 );
+          cursor += w + frontWidthUnits * 0.25;
     });
+
   }, [textures, frontWidthUnits, frontHeightUnits]);
 
-  /* ───────────────────────────────────────────────────────────────────────── */
-  /* 6. Render container div                                                  */
+
+  /* 6. Render container div */
   return (
     <div
       ref={container}

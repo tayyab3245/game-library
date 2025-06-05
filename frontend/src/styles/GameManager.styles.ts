@@ -6,8 +6,7 @@ export const styles: StyleMap = {
   container: {
     minHeight: '100vh',
     maxWidth : '100vw',      // prevent rogue horizontal scroll
-    overflowX: 'hidden',
-    background: '#111418',
+    background: '#f2f2f2',
     fontFamily: 'Roboto, sans-serif',
     display: 'flex',
     flexDirection: 'column',
