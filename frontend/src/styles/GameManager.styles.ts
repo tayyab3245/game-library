@@ -5,8 +5,10 @@ type StyleMap = { [k: string]: CSSProperties };
 export const styles: StyleMap = {
   container: {
     minHeight: '100vh',
-    maxWidth : '100vw',      // prevent rogue horizontal scroll
-    background: '#f2f2f2',
+    overflowY: 'hidden',
+    maxWidth : '100vw',      
+    overflowX: 'hidden',
+    background: '#222222',
     fontFamily: 'Roboto, sans-serif',
     display: 'flex',
     flexDirection: 'column',

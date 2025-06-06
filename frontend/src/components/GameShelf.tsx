@@ -44,6 +44,8 @@ const GameShelf: React.FC<GameShelfProps> = ({
   const meshes    = useRef<THREE.Mesh[]>([]);
   const urls      = useRef<string[]>([]);
   const selected  = useRef<THREE.Mesh | null>(null);
+  /** scale used for every active cover (manual or auto) */
+  const SELECT_SCALE = 1.35;
 
 
   const same = (a: string[], b: string[]) =>
@@ -52,7 +54,44 @@ const GameShelf: React.FC<GameShelfProps> = ({
 
   const hasPlayedBackground = useRef(false);
 
-  const panAccumulator = useRef(0);
+  // track which mesh is currently centred so we know when to “click”-advance
+  const currentCenterIdx = useRef<number | null>(null);
+
+  /** ----------------------------------------------------------
+   *  Helpers
+   * --------------------------------------------------------- */
+  const selectMesh = (
+    mesh: THREE.Mesh | null,
+    playSelectSound = false,
+  ) => {
+    // clear old
+    if (selected.current) {
+      selected.current.scale.set(1, 1, 1);
+      selected.current.rotation.y = 0;
+      const prevOutline = selected.current.userData.outline as THREE.Object3D;
+      if (prevOutline) prevOutline.visible = false;
+    }
+
+    selected.current = mesh;
+    if (!mesh) {
+      onSelect?.(null);
+      return;
+    }
+
+    // mark new
+    mesh.scale.set(SELECT_SCALE, SELECT_SCALE, SELECT_SCALE);
+    const outline = mesh.userData.outline as THREE.Object3D;
+    if (outline) outline.visible = true;
+
+    // slide shelf so this mesh is centred (world-X === 0)
+    const worldX = mesh.position.x + shelf.current.position.x;
+    shelf.current.position.x -= worldX;
+
+    // notify
+    currentCenterIdx.current = meshes.current.indexOf(mesh);
+    onSelect?.(currentCenterIdx.current);
+    if (playSelectSound) SoundManager.playObjectSelect();
+  };
 
 
   const buildMats3DS = (tex: THREE.Texture): THREE.Material[] => {
@@ -104,15 +143,14 @@ const GameShelf: React.FC<GameShelfProps> = ({
         : new THREE.MeshBasicMaterial({ color: 0xffffff });
 
     return [
-      makeMat(),                                         
-      makeMat(slice(U_SPINE_OFFSET, U_SPINE_WIDTH)),      
-      makeMat(),                                          
-      makeMat(),                                          
-      makeMat(slice(U_FRONT_OFFSET, U_FRONT_WIDTH)),      
-      makeMat(slice(U_BACK_OFFSET, U_BACK_WIDTH)),        
+      makeMat(),                                          // right (empty)
+      makeMat(slice(U_SPINE_OFFSET, U_SPINE_WIDTH)),      // spine
+      makeMat(),                                          // top (empty)
+      makeMat(),                                          // bottom (empty)
+      makeMat(slice(U_FRONT_OFFSET, U_FRONT_WIDTH)),      // front
+      makeMat(slice(U_BACK_OFFSET, U_BACK_WIDTH)),        // back
     ];
   };
-
 
 
   const WIDTH_FACTOR  = 0.50;               
@@ -138,6 +176,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
     renderer.current = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.current.setPixelRatio(Math.min(2, window.devicePixelRatio));
     container.current.appendChild(renderer.current.domElement);
+    const canvas = container.current!; // listen on container for full-area panning
 
     // Scene & Camera
     scene.current = new THREE.Scene();
@@ -169,15 +208,21 @@ const GameShelf: React.FC<GameShelfProps> = ({
     let longTid: number | null = null;
     let moved = false;
 
-    const clearSelect = (): void => {
-      if (!selected.current) return;
-      selected.current.scale.set(1, 1, 1);
-      selected.current.rotation.y = 0;
-      // hide outline if present
-      const prevOutline = selected.current.userData.outline as THREE.Object3D;
-      if (prevOutline) prevOutline.visible = false;
-      selected.current = null;
-      onSelect?.(null);
+    const clearSelect = () => selectMesh(null);
+
+
+    // Helper to auto-select centered mesh during pan
+    const autoSelectCentered = (): void => {
+      let nearest: THREE.Mesh | null = null;
+      let min = Infinity;
+      meshes.current.forEach(m => {
+        const d = Math.abs(m.position.x + shelf.current.position.x);
+        if (d < min) {
+          min = d;
+          nearest = m;
+        }
+      });
+      if (nearest && nearest !== selected.current) selectMesh(nearest, false);
     };
 
     const cancelLong = (): void => {
@@ -186,12 +231,6 @@ const GameShelf: React.FC<GameShelfProps> = ({
         longTid = null;
       }
     };
-
-    // Compute swipeThreshold = one cover’s width + gap, in world units.
-    let swipeThreshold = 0;
-
-    // Attach pointer events to this renderer’s canvas
-    const canvas = renderer.current.domElement;
 
     const onPointerDown = (e: PointerEvent): void => {
       dragging = true;
@@ -205,26 +244,24 @@ const GameShelf: React.FC<GameShelfProps> = ({
         hasPlayedBackground.current = true;
       }
 
+      // If the pointer-down did NOT happen inside the canvas we immediately
+      // switch to full-page panning — no ray-cast needed.
+      if (!(e.target as HTMLElement).closest('canvas')) {
+        mode = 'pan';
+        return;
+      }
+
       const rect = canvas.getBoundingClientRect();
       pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       ray.setFromCamera(pointer, camera.current);
 
-      const hit = ray.intersectObjects(meshes.current, true)[0]?.object as THREE.Mesh | undefined;
-      if (hit) {
-        if (selected.current !== hit) {
-          clearSelect();
-          selected.current = hit;
-          // show bold, inward brackets
-          const out = hit.userData.outline as THREE.Object3D;
-          if (out) out.visible = true;
-          selected.current.scale.set(1.35, 1.35, 1.35); // fine tuned 
-          onSelect?.(meshes.current.indexOf(hit));
-        }
-        mode = 'rotate';
+      const hit = ray.intersectObjects<THREE.Mesh>(meshes.current, true)[0]
+            ?.object;
 
-        // ← PLAY THE 3D‐OBJECT “SELECT” SOUND HERE:
-        SoundManager.playObjectSelect();
+      if (hit) {
+        if (selected.current !== hit) selectMesh(hit, true);
+        mode = 'rotate';
 
         longTid = window.setTimeout(() => {
           longTid = null;
@@ -233,16 +270,8 @@ const GameShelf: React.FC<GameShelfProps> = ({
       } else {
         clearSelect();
         mode = 'pan';
-
-        // Compute swipeThreshold if not set and we have at least one mesh
-        if (swipeThreshold === 0 && meshes.current.length > 0) {
-          const firstMesh = meshes.current[0];
-          const w = firstMesh.userData.actualWidth as number;
-          swipeThreshold = w + frontWidthUnits * 0.25; // world units: width + gap
-        }
       }
     };
-    canvas.addEventListener('pointerdown', onPointerDown);
 
     const onPointerMove = (e: PointerEvent): void => {
       if (!dragging) return;
@@ -254,22 +283,47 @@ const GameShelf: React.FC<GameShelfProps> = ({
       if (mode === 'rotate' && selected.current) {
         selected.current.rotation.y += dx * 0.012;
       } else if (mode === 'pan') {
-        // Accumulate absolute movement in world units (0.015 * dx)
-        panAccumulator.current += Math.abs(dx) * 0.015;
-        if (swipeThreshold > 0 && panAccumulator.current >= swipeThreshold) {
-          panAccumulator.current -= swipeThreshold;
-          SoundManager.playPan();
-        }
+        // move shelf
         shelf.current.position.x += dx * 0.015;
+
+        // check centre change
+        let nearest = -1,
+          nearestDist = Infinity;
+        meshes.current.forEach((m, idx) => {
+          const d = Math.abs(m.position.x + shelf.current.position.x);
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearest = idx;
+          }
+        });
+        if (nearest !== -1 && nearest !== currentCenterIdx.current) {
+          SoundManager.playPan();
+          selectMesh(meshes.current[nearest], false);
+        }
       }
     };
+
     const onPointerUp = (): void => {
       dragging = false;
       cancelLong();
+      if (mode === 'pan') autoSelectCentered();
     };
-    canvas.addEventListener('pointermove', onPointerMove);
-    canvas.addEventListener('pointerup',   onPointerUp);
-    canvas.addEventListener('pointerleave', onPointerUp);
+
+    // Remove scroll bar from page
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.userSelect = 'none';             // prevent text-highlight while panning
+
+     // ignore pointer events that originate from UI layers
+    const uiFilter = (e: PointerEvent) =>
+      !(e.target as HTMLElement)?.closest('[data-ui="true"]');
+    const safeDown  = (e: PointerEvent) => uiFilter(e) && onPointerDown(e);
+    const safeMove  = (e: PointerEvent) => uiFilter(e) && onPointerMove(e);
+    const safeUp    = (e: PointerEvent) => uiFilter(e) && onPointerUp();
+
+    window.addEventListener('pointerdown', safeDown);
+    window.addEventListener('pointermove', safeMove);
+    window.addEventListener('pointerup',   safeUp);
 
     /* Hover animation loop */
     let stopAnimation = false;
@@ -287,12 +341,14 @@ const GameShelf: React.FC<GameShelfProps> = ({
     renderLoop();
 
     return () => {
+      document.body.style.overflow       = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.userSelect = '';
       stopAnimation = true;
       window.removeEventListener('resize', resize);
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerup',   onPointerUp);
-      canvas.removeEventListener('pointerleave', onPointerUp);
+      window.removeEventListener('pointerdown', safeDown);
+      window.removeEventListener('pointermove', safeMove);
+      window.removeEventListener('pointerup',   safeUp);
       renderer.current.dispose();
     };
   }, []); // ← run only once on mount
@@ -348,7 +404,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
           const shadowGeo = new THREE.ShapeGeometry(shape);
           const shadow = new THREE.Mesh(
             shadowGeo,
-            new THREE.MeshBasicMaterial({ color: 0x000000, opacity: 0.03, transparent: true, side: THREE.DoubleSide })
+            new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0.05, transparent: true, side: THREE.DoubleSide })
           );
           shadow.rotation.y = Math.PI;
           mesh.userData.shadow = shadow;
@@ -367,13 +423,13 @@ const GameShelf: React.FC<GameShelfProps> = ({
             const group = new THREE.Group();
 
             // Horizontal segment
-            const geomH = new THREE.BoxGeometry(bracketLength, thickness, depth);
+            const geomH = new RoundedBoxGeometry(bracketLength, thickness, depth, 4, thickness * 0.4);
             const meshH = new THREE.Mesh(geomH, new THREE.MeshBasicMaterial({ color: 0xffa500 }));
             meshH.position.set(cx + (dirX * bracketLength) / 2, cy, 0);
             group.add(meshH);
 
             // Vertical segment
-            const geomV = new THREE.BoxGeometry(thickness, bracketLength, depth);
+            const geomV = new RoundedBoxGeometry(thickness, bracketLength, depth, 4, thickness * 0.4);
             const meshV = new THREE.Mesh(geomV, new THREE.MeshBasicMaterial({ color: 0xffa500 }));
             meshV.position.set(cx, cy + (dirY * bracketLength) / 2, 0);
             group.add(meshV);
@@ -465,7 +521,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
   return (
     <div
       ref={container}
-      style={{ width, height, position: 'relative', overflow: 'hidden' }}
+      style={{ width, height, position: 'relative', overflow: 'hidden', userSelect: 'none', touchAction: 'none' }}
     />
   );
 };

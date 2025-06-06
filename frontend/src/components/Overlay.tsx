@@ -104,6 +104,7 @@ const Overlay: React.FC<OverlayProps> = (p) => {
   return (
     <div
       style={overlayStyle}
+      data-ui="true"
       onClick={() => {
         SoundManager.playUIBack();
         p.onDismiss();
