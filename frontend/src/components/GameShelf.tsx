@@ -46,6 +46,11 @@ const GameShelf: React.FC<GameShelfProps> = ({
   const selected  = useRef<THREE.Mesh | null>(null);
   /** scale used for every active cover (manual or auto) */
   const SELECT_SCALE = 1.35;
+  /** shelf X-bounds after every layout pass */
+  const bounds = useRef<{ min: number; max: number }>({ min: 0, max: 0 });
+
+  const clamp = (v: number, lo: number, hi: number) =>
+    v < lo ? lo : v > hi ? hi : v;
 
 
   const same = (a: string[], b: string[]) =>
@@ -293,7 +298,11 @@ const GameShelf: React.FC<GameShelfProps> = ({
         selected.current.rotation.y += dx * 0.012;
       } else if (mode === 'pan') {
         // move shelf
-        shelf.current.position.x += dx * 0.015;
+        shelf.current.position.x = clamp(
+          shelf.current.position.x + dx * 0.015,
+          bounds.current.min,
+          bounds.current.max,
+        );
 
         // check centre change
         let nearest = -1,
@@ -361,6 +370,30 @@ const GameShelf: React.FC<GameShelfProps> = ({
       renderer.current.dispose();
     };
   }, []); // ← run only once on mount
+
+
+  /* ---------- arrow buttons (click / hold) -------------------------------- */
+  const holdTid = useRef<number | null>(null);
+  const STEP = () => {
+    if (currentCenterIdx.current === null) return;
+    const next = clamp(
+      currentCenterIdx.current + (holdTid.current === -1 ? -1 : 1),
+      0,
+      meshes.current.length - 1,
+    );
+    if (next !== currentCenterIdx.current) selectMesh(meshes.current[next], true);
+  };
+  const startHold = (dir: -1 | 1) => {
+    holdTid.current = dir;           // save direction in ref
+    STEP();
+    holdTid.current = window.setInterval(STEP, 260) as unknown as number;
+  };
+  const stopHold = () => {
+    if (holdTid.current !== null) {
+      clearInterval(holdTid.current);
+      holdTid.current = null;
+    }
+  };
 
   /* 5. TEXTURE LOADING + MESH UPDATE (runs whenever `textures` actually changes) */
   useEffect(() => {
@@ -523,6 +556,16 @@ const GameShelf: React.FC<GameShelfProps> = ({
           cursor += w + pad + GAP + 2.5 ;  // space between each game object + container
     });
 
+    
+    /* ---------- compute pan limits (first & last cover centred) ---------- */
+    if (all.length) {
+      const firstCenter = all[0].position.x;
+      const lastCenter  = all[all.length - 1].position.x;
+      bounds.current.min = -lastCenter;
+      bounds.current.max = -firstCenter;
+      shelf.current.position.x = clamp(shelf.current.position.x, bounds.current.min, bounds.current.max);
+    }
+
   }, [textures, frontWidthUnits, frontHeightUnits]);
 
 
@@ -531,7 +574,67 @@ const GameShelf: React.FC<GameShelfProps> = ({
     <div
       ref={container}
       style={{ width, height, position: 'relative', overflow: 'hidden', userSelect: 'none', touchAction: 'none' }}
-    />
+    >
+      {/* ← arrow */}
+      <div
+        onMouseDown={() => startHold(-1)}
+        onMouseUp={stopHold}
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 70,
+          height: 120,
+          borderTopRightRadius: 60,
+          borderBottomRightRadius: 60,
+          background: '#ffbe32',
+          boxShadow: '0 4px 12px rgba(0,0,0,.4)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          transition: 'transform .15s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-50%) scale(1.05)')}
+        onMouseLeave={e => {
+          stopHold();
+          e.currentTarget.style.transform = 'translateY(-50%)';
+        }}
+      >
+        &#9664;
+      </div>
+
+      {/* → arrow */}
+      <div
+        onMouseDown={() => startHold(1)}
+        onMouseUp={stopHold}
+        style={{
+          position: 'absolute',
+          right: 0,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 70,
+          height: 120,
+          borderTopLeftRadius: 60,
+          borderBottomLeftRadius: 60,
+          background: '#ffbe32',
+          boxShadow: '0 4px 12px rgba(0,0,0,.4)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          transition: 'transform .15s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-50%) scale(1.05)')}
+        onMouseLeave={e => {
+          stopHold();
+          e.currentTarget.style.transform = 'translateY(-50%)';
+        }}
+      >
+        &#9654;
+      </div>
+    </div>
   );
 };
 
