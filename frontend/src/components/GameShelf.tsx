@@ -95,11 +95,14 @@ const GameShelf: React.FC<GameShelfProps> = ({
 
 
   const buildMats3DS = (tex: THREE.Texture): THREE.Material[] => {
-    (tex as any).colorSpace = THREE.SRGBColorSpace;
-    tex.minFilter       = THREE.LinearFilter;
-    tex.magFilter       = THREE.LinearFilter;
-    tex.generateMipmaps = false;
-    tex.anisotropy      = renderer.current.capabilities.getMaxAnisotropy();
+    // enable mipmaps for smooth minification of small details (like text)
+    // mark texture as sRGB so GPU applies proper gamma correction
+    (tex as any).colorSpace   = THREE.SRGBColorSpace;
+    tex.generateMipmaps       = true;              // keep mipmaps for tiny text
+    tex.minFilter             = THREE.LinearMipmapLinearFilter;
+    tex.magFilter             = THREE.LinearFilter;
+    // force maximum anisotropy – the higher the better for oblique viewing
+    tex.anisotropy            = renderer.current.capabilities.getMaxAnisotropy();
     tex.needsUpdate     = true;
 
    
@@ -174,7 +177,13 @@ const GameShelf: React.FC<GameShelfProps> = ({
 
     // Renderer
     renderer.current = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.current.setPixelRatio(Math.min(2, window.devicePixelRatio));
+    // --- Colour pipeline -----------------------------------------------
+    (renderer.current as any).outputColorSpace = THREE.SRGBColorSpace; // correct gamma
+    renderer.current.toneMapping        = THREE.NoToneMapping;         // keep original contrast
+    /* leave .toneMappingExposure at default (1) when tone-mapping is off */
+
+    // render at full device resolution for pin-sharp UI
+    renderer.current.setPixelRatio(window.devicePixelRatio);
     container.current.appendChild(renderer.current.domElement);
     const canvas = container.current!; // listen on container for full-area panning
 
