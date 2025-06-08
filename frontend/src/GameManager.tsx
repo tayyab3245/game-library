@@ -28,6 +28,13 @@ export default function GameManager() {
   const [romExists, setRomExists] = useState(false);
   const [emuExists, setEmuExists] = useState(false);
 
+    // current time for header clock
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  
   const [vw, setVw] = useState(() => window.innerWidth);
   useEffect(() => {
     const onResize = () => setVw(window.innerWidth);
@@ -159,6 +166,7 @@ export default function GameManager() {
   const SHELF_H = Math.min(400, vw * 0.6);
   const titleChanged = editTitle.trim() !== (selGame?.title.trim() ?? "").trim();
   const canLaunch   = !!selGame && romExists && emuExists;
+  const hoursPlayed = (selGame as any)?.hoursPlayed ?? 0;
   
   /* helpers */
   const openAddModal = () => {
@@ -195,15 +203,17 @@ export default function GameManager() {
 
   return (
     <div style={styles.container}>
-      {/* header removed per new layout */}
-
-      <h2 style={styles.gameTitle}>{selGame?.title ?? "Select a game"}</h2>
+      <div style={styles.header}>
+        <h2 style={styles.gameTitle}>{selGame?.title ?? 'Select a game'}</h2>
+        <span style={styles.dateTime}>{now.toLocaleString()}</span>
+        <span style={styles.hours}>Hours Played: {hoursPlayed}</span>
+      </div>
             {selGame && (
         <div style={styles.hoursText}>
           {selGame.hoursPlayed} hour{selGame.hoursPlayed === 1 ? '' : 's'} played
         </div>
       )}
-      <div style={{ width: "100%", height: SHELF_H, marginTop: 16 }}>
+        <div style={{ ...styles.middle, height: SHELF_H }}>
         <GameShelf
           textures={[...games.map((g) => `${API}${g.imageUrl}`), ADD_MARKER]}
           width="100%"

@@ -14,6 +14,30 @@ export const styles: StyleMap = {
     flexDirection: 'column',
     paddingBottom: 100, // space for bottom dock
   },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '12px 24px',
+    background: '#1e1e24',
+    color: '#fff',
+  },
+  middle: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 16,
+  },
+  dateTime: {
+    fontSize: 14,
+    color: '#fff',
+  },
+  hours: {
+    fontSize: 14,
+    color: '#fff',
+  },
   form: {
     display: 'flex',
     flexDirection: 'row',
