@@ -555,6 +555,62 @@ const GameShelf: React.FC<GameShelfProps> = ({
           mesh.geometry = isAdd
             ? new RoundedBoxGeometry(boxW * 0.8, boxW * 0.8, boxD * 0.1, 8, bevelRadius)
             : new RoundedBoxGeometry(boxW, boxH, boxD, 16, bevelRadius);
+            
+          /* when converting from an “add” cube, build missing background */
+          if (wasAdd && !isAdd) {
+            const sw = boxW * 1.6, sh = boxH * 1.6;
+            const radius = Math.min(sw, sh) * 0.1;
+            const shape = new THREE.Shape();
+            shape.moveTo(-sw / 2 + radius, -sh / 2);
+            shape.lineTo(sw / 2 - radius, -sh / 2);
+            shape.quadraticCurveTo(sw / 2, -sh / 2, sw / 2, -sh / 2 + radius);
+            shape.lineTo(sw / 2, sh / 2 - radius);
+            shape.quadraticCurveTo(sw / 2, sh / 2, sw / 2 - radius, sh / 2);
+            shape.lineTo(-sw / 2 + radius, sh / 2);
+            shape.quadraticCurveTo(-sw / 2, sh / 2, -sw / 2, sh / 2 - radius);
+            shape.lineTo(-sw / 2, -sh / 2 + radius);
+            shape.quadraticCurveTo(-sw / 2, -sh / 2, -sw / 2 + radius, -sh / 2);
+            const shadowGeo = new THREE.ShapeGeometry(shape);
+            const shadow = new THREE.Mesh(
+              shadowGeo,
+              new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                opacity: 0.05,
+                transparent: true,
+                side: THREE.DoubleSide,
+              }),
+            );
+            shadow.rotation.y = Math.PI;
+            mesh.userData.shadow = shadow;
+            shelf.current.add(shadow);
+
+            const bracketGroup = new THREE.Group();
+            const bracketLength = Math.min(sw, sh) * 0.2;
+            const makeBracket = (cx: number, cy: number) => {
+              const dirX = cx < 0 ? 1 : -1;
+              const dirY = cy < 0 ? 1 : -1;
+              const thickness = bracketLength * 0.2;
+              const depth = thickness;
+              const group = new THREE.Group();
+              const geomH = new RoundedBoxGeometry(bracketLength, thickness, depth, 4, thickness * 0.4);
+              const meshH = new THREE.Mesh(geomH, new THREE.MeshBasicMaterial({ color: 0xffa500 }));
+              meshH.position.set(cx + (dirX * bracketLength) / 2, cy, 0);
+              group.add(meshH);
+              const geomV = new RoundedBoxGeometry(thickness, bracketLength, depth, 4, thickness * 0.4);
+              const meshV = new THREE.Mesh(geomV, new THREE.MeshBasicMaterial({ color: 0xffa500 }));
+              meshV.position.set(cx, cy + (dirY * bracketLength) / 2, 0);
+              group.add(meshV);
+              return group;
+            };
+
+            bracketGroup.add(makeBracket(-sw / 2, -sh / 2));
+            bracketGroup.add(makeBracket(sw / 2, -sh / 2));
+            bracketGroup.add(makeBracket(sw / 2, sh / 2));
+            bracketGroup.add(makeBracket(-sw / 2, sh / 2));
+            bracketGroup.visible = false;
+            mesh.userData.outline = bracketGroup;
+            shelf.current.add(bracketGroup);
+          }
         }
 
 
