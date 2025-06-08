@@ -166,7 +166,7 @@ export default function GameManager() {
   const SHELF_H = Math.min(400, vw * 0.6);
   const titleChanged = editTitle.trim() !== (selGame?.title.trim() ?? "").trim();
   const canLaunch   = !!selGame && romExists && emuExists;
-  const hoursPlayed = (selGame as any)?.hoursPlayed ?? 0;
+ 
   
   /* helpers */
   const openAddModal = () => {
@@ -204,15 +204,16 @@ export default function GameManager() {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h2 style={styles.gameTitle}>{selGame?.title ?? 'Select a game'}</h2>
-        <span style={styles.dateTime}>{now.toLocaleString()}</span>
-        <span style={styles.hours}>Hours Played: {hoursPlayed}</span>
-      </div>
-            {selGame && (
-        <div style={styles.hoursText}>
-          {selGame.hoursPlayed} hour{selGame.hoursPlayed === 1 ? '' : 's'} played
+        <div style={styles.titleWrap}>
+          <h2 style={styles.gameTitle}>{selGame?.title ?? 'Select a game'}</h2>
+          {selGame && (
+            <div style={styles.hours}>
+              {selGame.hoursPlayed} hour{selGame.hoursPlayed === 1 ? '' : 's'} played
+            </div>
+          )}
         </div>
-      )}
+        <span style={styles.dateTime}>{now.toLocaleString()}</span>
+      </div>
         <div style={{ ...styles.middle, height: SHELF_H }}>
         <GameShelf
           textures={[...games.map((g) => `${API}${g.imageUrl}`), ADD_MARKER]}

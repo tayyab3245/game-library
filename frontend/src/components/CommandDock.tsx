@@ -36,33 +36,23 @@ const CommandDock: React.FC<Props> = ({
       left: 0,
       right: 0,
       bottom: 0,
-      height: 120,
-      pointerEvents: 'none',
+      padding: '16px 24px',
+      background: '#1e1e24',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      boxShadow: '0 -4px 12px rgba(0,0,0,.4)',
+      borderTopLeftRadius: 12,
+      borderTopRightRadius: 12,
       zIndex: 2000,
     }}
   >
-    {/* central bubble --------------------------------------------------- */}
-    <div
-      style={{
-        position: 'absolute',
-        left: '50%',
-        bottom: 24,
-        transform: 'translateX(-50%)',
-        padding: '22px 40px',
-        background: '#1e1e24',
-        borderRadius: 46,
-        boxShadow: '0 6px 18px rgba(0,0,0,.55)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 24,
-        pointerEvents: 'auto',
-      }}
-    >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
       <button
         style={{
-          padding: '12px 48px',
+          padding: '12px 32px',
           fontSize: 18,
-          borderRadius: 28,
+          borderRadius: 8,
           background: canLaunch ? '#ffbe32' : '#444',
           border: 'none',
           fontWeight: 600,
@@ -82,21 +72,16 @@ const CommandDock: React.FC<Props> = ({
       </div>
     </div>
 
-    {/* edit bubble ------------------------------------------------------ */}
+
     <button
       style={{
-        position: 'absolute',
-        right: 32,
-        bottom: 32,
-        padding: '14px 26px',
-        borderRadius: 32,
+    
         background: '#1e1e24',
         color: '#fff',
-        border: 'none',
+        border: '1px solid #333',
         fontWeight: 600,
         cursor: editEnabled ? 'pointer' : 'not-allowed',
         boxShadow: '0 4px 14px rgba(0,0,0,.5)',
-        pointerEvents: 'auto',
         opacity: editEnabled ? 1 : 0.4,
       }}
       disabled={!editEnabled}

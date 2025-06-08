@@ -15,12 +15,20 @@ export const styles: StyleMap = {
     paddingBottom: 100, // space for bottom dock
   },
   header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '12px 24px',
+    position: 'relative',
+    padding: '12px 24px 32px 24px',
     background: '#1e1e24',
     color: '#fff',
+  },
+    dateTime: {
+    position: 'absolute',
+    top: 12,
+    right: 24,
+    fontSize: 14,
+    color: '#fff',
+  },
+  titleWrap: {
+    textAlign: 'center',
   },
   middle: {
     flex: 1,
@@ -30,13 +38,10 @@ export const styles: StyleMap = {
     justifyContent: 'center',
     paddingTop: 16,
   },
-  dateTime: {
-    fontSize: 14,
-    color: '#fff',
-  },
   hours: {
-    fontSize: 14,
-    color: '#fff',
+    fontSize: 16,
+    color: '#ccc',
+    marginTop: 4,
   },
   form: {
     display: 'flex',
@@ -63,12 +68,5 @@ export const styles: StyleMap = {
     fontWeight: 600,
     textAlign: 'center',
     margin: '8px 0 0 0',
-  },
-    hoursText: {
-    color: '#ccc',
-    fontSize: 16,
-    fontWeight: 400,
-    textAlign: 'center',
-    margin: '4px 0 0 0',
   },
 };
