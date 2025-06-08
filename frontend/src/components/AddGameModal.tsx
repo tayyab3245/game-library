@@ -6,9 +6,11 @@ import SoundManager from "../utils/SoundManager";
 
 export interface AddGameModalProps {
   mode: "add" | "edit";
-  initial?: Partial<GameForm>;
+  /** `coverUrl` supplies an existing image when editing */
+  initial?: Partial<GameForm> & { coverUrl?: string };
   onSubmit: (data: GameForm) => void;
   onDismiss: () => void;
+  onDelete?: () => void;
 }
 
 export interface GameForm {
@@ -23,6 +25,7 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
   initial = {},
   onSubmit,
   onDismiss,
+  onDelete,
 }) => {
   const [form, setForm] = useState<GameForm>({
     title: initial.title ?? "",
@@ -32,8 +35,15 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
   });
 
   const [preview, setPreview] = useState<string | null>(
-    initial.coverFile ? URL.createObjectURL(initial.coverFile) : null
+    initial.coverFile
+      ? URL.createObjectURL(initial.coverFile)
+      : initial.coverUrl || null,
   );
+  useEffect(() => {
+    if (!form.coverFile && initial.coverUrl) {
+      setPreview(initial.coverUrl);
+    }
+  }, [initial.coverUrl]);
 
   const [romName, setRomName] = useState<string>(
     initial.romPath ? initial.romPath.split(/[/\\]/).pop()! : ""
@@ -123,6 +133,17 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
           }}
         >
           <div style={label}>Cover Art</div>
+          {mode === "edit" && onDelete && (
+            <button
+              style={{ ...neonBtn(false), background: "#ff3737" }}
+              onClick={() => {
+                SoundManager.playUIBack();
+                onDelete();
+              }}
+            >
+              Delete
+            </button>
+          )}
           <button
             style={neonBtn(false)}
             onClick={() => {

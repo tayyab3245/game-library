@@ -16,6 +16,7 @@ export interface GameShelfProps {
 }
 
 
+const ADD_MARKER  = "__ADD__";
 const FULL_W_3DS  = 3236;   // total pixel width of your 3DS scan
 const FULL_H_3DS  = 1360;   // total pixel height of your 3DS scan
 const BACK_3DS    = 1508;   // back cover width in px (3DS)
@@ -230,6 +231,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
       let nearest: THREE.Mesh | null = null;
       let min = Infinity;
       meshes.current.forEach(m => {
+        if (m.userData.isAdd) return;            // skip “add” cube
         const d = Math.abs(m.position.x + shelf.current.position.x);
         if (d < min) {
           min = d;
@@ -251,6 +253,9 @@ const GameShelf: React.FC<GameShelfProps> = ({
       moved = false;
       lastX = e.clientX;
       cancelLong();
+      if (mode === 'rotate' && selected.current && !selected.current.userData.isAdd) {
+        selected.current.rotation.y = 0;
+      }
 
       // Play background music once on first "user gesture"
       if (!hasPlayedBackground.current) {
@@ -270,8 +275,26 @@ const GameShelf: React.FC<GameShelfProps> = ({
       pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       ray.setFromCamera(pointer, camera.current);
 
-      const hit = ray.intersectObjects<THREE.Mesh>(meshes.current, true)[0]
-            ?.object;
+      // find the *root* mesh that belongs to the main `meshes` array
+      const rawHit = ray.intersectObjects(scene.current.children, true)[0]?.object;
+      let hit: THREE.Mesh | null = null;
+      if (rawHit) {
+        let cur: THREE.Object3D | null = rawHit;
+        while (cur && !meshes.current.includes(cur as THREE.Mesh)) {
+          cur = cur.parent;
+        }
+        if (cur && meshes.current.includes(cur as THREE.Mesh)) {
+          hit = cur as THREE.Mesh;
+        }
+      }
+
+      if (hit && hit.userData.isAdd) {
+        // delegate to parent → opens modal using the actual mesh index
+        onSelect?.(-1);
+        SoundManager.playUISelect();
+        mode = null;
+        return;
+      }
 
       if (hit) {
         if (selected.current !== hit) selectMesh(hit, true);
@@ -279,7 +302,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
 
         longTid = window.setTimeout(() => {
           longTid = null;
-          if (!moved) onLongPress?.(meshes.current.indexOf(hit));
+          if (!moved && hit) onLongPress?.(meshes.current.indexOf(hit));
         }, 700);
       } else {
         clearSelect();
@@ -294,7 +317,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
       if (Math.abs(dx) > 4) moved = true;
       if (moved) cancelLong();
 
-      if (mode === 'rotate' && selected.current) {
+      if (mode === 'rotate' && selected.current && !selected.current.userData.isAdd) {
         selected.current.rotation.y += dx * 0.012;
       } else if (mode === 'pan') {
         // move shelf
@@ -304,10 +327,10 @@ const GameShelf: React.FC<GameShelfProps> = ({
           bounds.current.max,
         );
 
-        // check centre change
-        let nearest = -1,
-          nearestDist = Infinity;
+        // check centre change (skip the “add” cube)
+        let nearest = -1, nearestDist = Infinity;
         meshes.current.forEach((m, idx) => {
+          if (m.userData.isAdd) return;
           const d = Math.abs(m.position.x + shelf.current.position.x);
           if (d < nearestDist) {
             nearestDist = d;
@@ -324,7 +347,22 @@ const GameShelf: React.FC<GameShelfProps> = ({
     const onPointerUp = (): void => {
       dragging = false;
       cancelLong();
-      if (mode === 'pan') autoSelectCentered();
+      if (mode === 'pan') {
+        // find nearest mesh including the “add” cube
+        let nearestIdx = -1, nearestDist = Infinity;
+        meshes.current.forEach((m, idx) => {
+          const d = Math.abs(m.position.x + shelf.current.position.x);
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearestIdx = idx;
+          }
+        });
+        /* if the “add” cube ends up centred by panning we *do not* open the
+           modal – user must click/tap it explicitly                                    */
+        if (!meshes.current[nearestIdx]?.userData.isAdd) {
+          autoSelectCentered();
+        }
+      }
     };
 
     // Remove scroll bar from page
@@ -379,7 +417,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
     const next = clamp(
       currentCenterIdx.current + (holdTid.current === -1 ? -1 : 1),
       0,
-      meshes.current.length - 1,
+      Math.max(0, meshes.current.length - 2),   // skip trailing “add” cube
     );
     if (next !== currentCenterIdx.current) selectMesh(meshes.current[next], true);
   };
@@ -416,20 +454,25 @@ const GameShelf: React.FC<GameShelfProps> = ({
 
       /* 5b. Create or reuse mesh */
       let mesh = meshes.current[i];
-        if (!mesh) {
-          // 1) Create the box itself
-          // use RoundedBoxGeometry for beveled edges
-          const bevelRadius = Math.min(boxW, boxH) * 0.02; // game container edge bevel
-          const geo = new RoundedBoxGeometry(boxW, boxH, boxD, 16, bevelRadius);
+      const isAdd = url === ADD_MARKER;
+      const bevelRadius = Math.min(boxW, boxH) * 0.02;
+
+      if (!mesh) {
+        // 1) Create the box itself
+          const geo = isAdd
+            ? new RoundedBoxGeometry(boxW * 0.8, boxW * 0.8, boxD * 0.02, 8, bevelRadius)
+            : new RoundedBoxGeometry(boxW, boxH, boxD, 16, bevelRadius);
           mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
 
-          mesh.userData.ph = Math.random() * Math.PI * 2;
+          mesh.userData.isAdd = isAdd;          // flag “add” cube
+          mesh.userData.ph    = Math.random() * Math.PI * 2;
           shelf.current.add(mesh);
-          meshes.current[i] = mesh;
+          meshes.current[i]   = mesh;
 
-          // spacing: leave padding around each object
+          /* leave padding all-round */
           mesh.userData.padding = bevelRadius * 2;
-          // 2) Create a simple “wall" behind this box
+          if (!isAdd) {
+            // 2) Create a simple “wall" behind this box
           // create a rounded-rectangle shape for beveled shadow
           const sw = boxW * 1.6, sh = boxH * 1.6;
           const radius = Math.min(sw, sh) * 0.1; // container bevel amount
@@ -487,15 +530,62 @@ const GameShelf: React.FC<GameShelfProps> = ({
           bracketGroup.visible = false;
           mesh.userData.outline = bracketGroup;
           shelf.current.add(bracketGroup);
+          }                             /* ← end !isAdd */
         }
 
         // Now mesh points to our box; next we’ll update its material (if needed),
         // and position both box and its shadow in the layout.
         mesh = meshes.current[i];
+        const wasAdd = !!mesh.userData.isAdd;   // save previous role
+        mesh.userData.isAdd = isAdd;
+
+                /* remove lingering “+” from a previous add-cube */
+        if (wasAdd && !isAdd && mesh.userData.plusBuilt) {
+          (mesh.children as THREE.Object3D[])
+            .filter(c => (c as any).userData?.isPlus)
+            .forEach(c => mesh.remove(c));
+          delete mesh.userData.plusBuilt;
+        }
+
+        /* geometry swap ─ when a former “add” cube turns into a real cover
+           (or vice-versa) we need to rebuild the box shape */
+        if (wasAdd !== isAdd) {
+
+          mesh.geometry.dispose();
+          mesh.geometry = isAdd
+            ? new RoundedBoxGeometry(boxW * 0.8, boxW * 0.8, boxD * 0.1, 8, bevelRadius)
+            : new RoundedBoxGeometry(boxW, boxH, boxD, 16, bevelRadius);
+        }
 
 
       /* 5c. Load texture if URL changed */
-      if (mesh.userData.url !== url) {
+      if (url === ADD_MARKER) {
+        mesh.userData.isAdd = true;                       // “add” cube
+        /* plain lighter plate ---------------------------------------------------- */
+        const plateMat = new THREE.MeshBasicMaterial({ color: 0x2a2a2f });
+        mesh.material = [plateMat, plateMat, plateMat, plateMat, plateMat, plateMat];
+
+        /* 3-D yellow “+” --------------------------------------------------------- */
+        if (!mesh.userData.plusBuilt) {
+          const barT = boxW * 0.12;                       // thickness
+          const barL = boxW * 0.50;                       // length
+          const barD = boxD * 0.3;                        // depth
+          const r    = barT * 0.4;                        // bevel
+          const barGeoH = new RoundedBoxGeometry(barL, barT, barD, 4, r);
+          const barGeoV = new RoundedBoxGeometry(barT, barL, barD, 4, r);
+          const barMat  = new THREE.MeshBasicMaterial({ color: 0xffbe32 });
+          const barH = new THREE.Mesh(barGeoH, barMat);
+          const barV = new THREE.Mesh(barGeoV, barMat);
+          const plusGrp = new THREE.Group();
+          plusGrp.userData.isPlus = true;
+          plusGrp.add(barH);
+          plusGrp.add(barV);
+          barH.position.z = barV.position.z = boxD * 0.55; // lift slightly in front
+          mesh.add(plusGrp);
+          mesh.userData.plusBuilt = true;
+        }
+        mesh.userData.url = url;
+      } else if (mesh.userData.url !== url) {
         loader.load(
           url,
           (tex) => {
@@ -510,10 +600,10 @@ const GameShelf: React.FC<GameShelfProps> = ({
         );
       }
 
-      /* 5d. Store dims for layout */
+      /* 5d. Store dims for layout (note: “add” cube is only 10 % thick) */
       mesh.userData.actualWidth  = boxW;
       mesh.userData.actualHeight = boxH;
-      mesh.userData.actualDepth  = boxD;
+      mesh.userData.actualDepth  = isAdd ? boxD * 0.1 : boxD;
     });
 
     // Remove any extra meshes
@@ -544,15 +634,14 @@ const GameShelf: React.FC<GameShelfProps> = ({
           m.position.set(cursor + half, 0, 0);
           m.userData.homeY = 0;
           // Position vertical shadow “wall” behind box
-          const shadow = m.userData.shadow as THREE.Mesh;
-          // Place shadow at height equal to box center, behind box along -Z
-          shadow.position.set(cursor + half, 0, -boxD / 2 - 0.1 );
-          // match bracket position/rotation to shadow
-          const outline = m.userData.outline as THREE.Object3D;
-          outline.position.copy(shadow.position);
-          // ensure outline rotation matches shadow orientation
-          outline.rotation.copy(shadow.rotation);
-          outline.visible = selected.current === m;
+          if (!m.userData.isAdd && m.userData.shadow && m.userData.outline) {
+            const shadow  = m.userData.shadow   as THREE.Mesh;
+            const outline = m.userData.outline  as THREE.Object3D;
+            shadow.position.set(cursor + half, 0, boxD / 2 + 0.01);
+            outline.position.copy(shadow.position);
+            outline.rotation.copy(shadow.rotation);
+            outline.visible = selected.current === m;
+          }
           cursor += w + pad + GAP + 2.5 ;  // space between each game object + container
     });
 
@@ -560,7 +649,11 @@ const GameShelf: React.FC<GameShelfProps> = ({
     /* ---------- compute pan limits (first & last cover centred) ---------- */
     if (all.length) {
       const firstCenter = all[0].position.x;
-      const lastCenter  = all[all.length - 1].position.x;
+      /* exclude any trailing “add” cube from the pan-bounds so it can’t be
+         centred via arrows or drag scrolling                                      */
+      let lastIdx = all.length - 1;
+      while (lastIdx >= 0 && all[lastIdx].userData.isAdd) lastIdx--;
+      const lastCenter = all[lastIdx]?.position.x ?? 0;
       bounds.current.min = -lastCenter;
       bounds.current.max = -firstCenter;
       shelf.current.position.x = clamp(shelf.current.position.x, bounds.current.min, bounds.current.max);

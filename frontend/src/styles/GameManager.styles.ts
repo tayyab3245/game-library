@@ -12,14 +12,7 @@ export const styles: StyleMap = {
     fontFamily: 'Roboto, sans-serif',
     display: 'flex',
     flexDirection: 'column',
-  },
-  header: {
-    color: '#fff',
-    fontSize: 40,
-    fontWeight: 500,
-    paddingLeft: 24,
-    marginTop: 20,
-    marginBottom: 12,
+    paddingBottom: 100, // space for bottom dock
   },
   form: {
     display: 'flex',
@@ -30,14 +23,6 @@ export const styles: StyleMap = {
     flexWrap: 'wrap',
     marginBottom: 14,
   },
-  controlRow: {
-    display: 'flex',
-    flexDirection: 'row',
-    gap: 14,
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    marginBottom: 20,
-  },
   input: {
     background: '#1e1e24',
     color: '#fff',
@@ -47,11 +32,12 @@ export const styles: StyleMap = {
     border: 'none',
     outline: 'none',
   },
-  divider: {
-    height: 1,
-    width: '90%',
-    background: '#2a2d33',
-    alignSelf: 'center',
-    marginBottom: 18,
+  /* new – top-centre game title */
+    gameTitle: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: 600,
+    textAlign: 'center',
+    margin: '8px 0 0 0',
   },
 };

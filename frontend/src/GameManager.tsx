@@ -6,23 +6,24 @@ import AddGameModal, { GameForm } from "./components/AddGameModal";
 import { styles } from "./styles/GameManager.styles";
 import { neonBtn } from "./utils/styles";
 import useGames, { Game } from "./hooks/useGames";
-import Overlay from "./components/Overlay";
 import SoundManager from "./utils/SoundManager";
+import CommandDock from "./components/CommandDock";
 
 export default function GameManager() {
+  const ADD_MARKER = "__ADD__";           // sentinel for “Add Game” cube
   const { games, loadGames, API } = useGames();
 
   const [selIdx, setSelIdx] = useState<number | null>(null);
-  const [editMode, setEditMode] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [updating, setUpdating] = useState(false);
   const [flashOk, setFlashOk] = useState(false);
-  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [editMode, _setEditMode] = useState(false);      // kept only for modal mode flag
 
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [modalOpen, setModalOpen] = useState(false);
 
-  const [initialData, setInitialData] = useState<Partial<GameForm>>({});
+  // include coverUrl in initial data for the modal
+  const [initialData, setInitialData] = useState<Partial<GameForm> & { coverUrl?: string }>({});
 
   const [romExists, setRomExists] = useState(false);
   const [emuExists, setEmuExists] = useState(false);
@@ -77,8 +78,8 @@ export default function GameManager() {
 
   const refreshAndClear = () => {
     setSelIdx(null);
-    setEditMode(false);
-    setEditTitle("");
+    _setEditMode(false);
+    setEditTitle('');
     loadGames();
   };
 
@@ -136,142 +137,89 @@ export default function GameManager() {
       .catch((e) => window.alert(`Error: ${e.message}`));
 
   const handleSelectFromShelf = (i: number | null) => {
-    setSelIdx(i);
-    setEditMode(false);
-    setOverlayOpen(i !== null);
-    if (i !== null) {
-      SoundManager.playObjectSelect();
+    if (i === null) {
+      setSelIdx(null);
+      return;
     }
+    // plus-cube selected → open “add game” modal
+    if (i === -1) {
+      SoundManager.playUISelect();
+      openAddModal();
+      return;
+    }
+    setSelIdx(i);
+    SoundManager.playObjectSelect();
   };
 
   const handleLongPressFromShelf = (i: number) => {
     setSelIdx(i);
-    setEditMode(true);
-    setOverlayOpen(true);
     SoundManager.playUISelect();
   };
 
   const SHELF_H = Math.min(400, vw * 0.6);
   const titleChanged = editTitle.trim() !== (selGame?.title.trim() ?? "").trim();
+  const canLaunch   = !!selGame && romExists && emuExists;
+  
+  /* helpers */
+  const openAddModal = () => {
+    setModalMode("add");
+    // `coverUrl` is optional, so use undefined instead of `null`
+    setInitialData({ coverUrl: undefined });
+    setModalOpen(true);
+  };
+  const openEditForSelected = () => {
+    if (selIdx === null) return;
+    setModalMode("edit");
+    setInitialData({
+      title: selGame!.title,
+      coverUrl: `${API}${selGame!.imageUrl}`,
+      coverFile: null,
+      romPath: selGame!.romPath,
+      emuPath: selGame!.emuPath,
+    });
+    setModalOpen(true);
+  };
+    const handleLaunch = () => {
+    if (!canLaunch) return;
+    const api = (window as any).launcherAPI;
+    Promise.all([api.exists(selGame!.romPath), api.exists(selGame!.emuPath)]).then(
+      ([romOk, emuOk]) => {
+        if (!romOk || !emuOk) {
+          window.alert("ROM or Emulator missing");
+          return null;
+        }
+        return api.play(selGame!.emuPath, selGame!.romPath);
+      },
+    );
+  };
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.header}>🎮 Game Shelf</h1>
+      {/* header removed per new layout */}
 
-      <div style={styles.controlRow}>
-        <button
-          style={neonBtn(false)}
-          onClick={() => {
-            SoundManager.playUISelect();
-            setModalMode("add");
-            setInitialData({});
-            setModalOpen(true);
-          }}
-        >
-          Add New Game
-        </button>
-        <button
-          style={neonBtn(false)}
-          onClick={() => {
-            SoundManager.playUISelect();
-            replaceCollection();
-          }}
-        >
-          Replace Collection
-        </button>
-        <button
-          style={neonBtn(false, true)}
-          onClick={() => {
-            SoundManager.playUIBack();
-            deleteAllGames();
-          }}
-        >
-          Delete All Games
-        </button>
-      </div>
-
-      <div style={styles.divider} />
-
-      {selGame && overlayOpen && (
-        <Overlay
-          flash={flashOk}
-          editMode={editMode}
-          editTitle={editTitle}
-          setEditTitle={setEditTitle}
-          updating={updating}
-          titleChanged={titleChanged}
-          onUpdate={() => {
-            SoundManager.playUISelect();
-            setModalMode("edit");
-            setInitialData({
-              title: editTitle,
-              coverFile: null,
-              romPath: selGame.romPath,
-              emuPath: selGame.emuPath,
-            });
-            setModalOpen(true);
-          }}
-          onDelete={() => {
-            SoundManager.playUIBack();
-            deleteGame(selGame.id);
-          }}
-          onDismiss={() => {
-            SoundManager.playUIBack();
-            setSelIdx(null);
-            setEditMode(false);
-            setOverlayOpen(false);
-          }}
-          emulatorFound={emuExists}
-          romFound={romExists}
-          onPlay={() => {
-            SoundManager.playUISelect();
-
-            const api = (window as any).launcherAPI;
-            if (!api || typeof api.exists !== "function" || typeof api.play !== "function") {
-              console.error("launcherAPI is not available or missing methods.");
-              window.alert("Cannot launch: launcherAPI is not available.");
-              return;
-            }
-
-            Promise.all([api.exists(selGame.romPath), api.exists(selGame.emuPath)])
-              .then(([romOk, emuOk]) => {
-                if (!romOk || !emuOk) {
-                  window.alert("Error launching emulator: ROM or Emulator missing");
-                  return null;
-                }
-                console.log("Launching with:", { emuPath: selGame.emuPath, romPath: selGame.romPath });
-                return api.play(selGame.emuPath, selGame.romPath);
-              })
-              .then((playResult: any) => {
-                if (playResult && playResult.ok === false) {
-                  console.error("Play returned error:", playResult.error);
-                  window.alert("Error launching emulator:\n" + playResult.error);
-                }
-              })
-              .catch((err: any) => {
-                console.error("IPC play error:", err);
-                window.alert("Error launching emulator (see console).");
-              });
-          }}
+      <h2 style={styles.gameTitle}>{selGame?.title ?? "Select a game"}</h2>
+      <div style={{ width: "100%", height: SHELF_H, marginTop: 16 }}>
+        <GameShelf
+          textures={[...games.map((g) => `${API}${g.imageUrl}`), ADD_MARKER]}
+          width="100%"
+          height="100%"
+          onSelect={handleSelectFromShelf}
+          onLongPress={handleLongPressFromShelf}
         />
-      )}
-
-      {games.length > 0 && (
-        <div style={{ width: "100%", height: SHELF_H }}>
-          <GameShelf
-            textures={games.map((g) => `${API}${g.imageUrl}`)}
-            width="100%"
-            height="100%"
-            onSelect={handleSelectFromShelf}
-            onLongPress={handleLongPressFromShelf}
-          />
-        </div>
-      )}
+      </div>
 
       {modalOpen && (
         <AddGameModal
           mode={modalMode}
           initial={initialData}
+            onDelete={() => {
+            if (selIdx !== null) {
+              SoundManager.playUIBack();
+              deleteGame(games[selIdx].id);
+              setModalOpen(false);
+            }
+          }}
+
           onSubmit={(data) => {
             SoundManager.playUISelect();
             createOrUpdateGame(data);
@@ -282,6 +230,21 @@ export default function GameManager() {
           }}
         />
       )}
+            {/* ────────── Bottom Command Dock ────────── */}
+      <CommandDock
+        canLaunch={canLaunch}
+        emulatorFound={emuExists}
+        romFound={romExists}
+        editEnabled={selIdx !== null}
+        onLaunch={() => {
+          SoundManager.playUISelect();
+          handleLaunch();
+        }}
+        onEdit={() => {
+          SoundManager.playUISelect();
+          openEditForSelected();
+        }}
+      />
     </div>
   );
 }

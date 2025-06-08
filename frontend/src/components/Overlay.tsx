@@ -1,9 +1,9 @@
 
 // src/components/Overlay.tsx
-
 import React, { useEffect, useRef } from "react";
 import { neonBtn } from "../utils/styles";
 import SoundManager from "../utils/SoundManager";
+
 
 export type OverlayProps = {
   flash: boolean;
@@ -130,31 +130,6 @@ const Overlay: React.FC<OverlayProps> = (p) => {
                 </span>
               </div>
             </div>
-
-
-            <button
-              style={{
-                ...neonBtn(!p.emulatorFound || !p.romFound),
-                cursor: p.emulatorFound && p.romFound ? "pointer" : "not-allowed",
-                animation: "pulse .3s ease",
-              }}
-              disabled={!p.emulatorFound || !p.romFound}
-              onClick={(e) => {
-                SoundManager.playUISelect();
-                p.onPlay();
-
-                (e.currentTarget as HTMLButtonElement).animate(
-                  [
-                    { transform: "scale(1)" },
-                    { transform: "scale(1.08)" },
-                    { transform: "scale(1)" },
-                  ],
-                  { duration: 220, easing: "ease-out" }
-                );
-              }}
-            >
-              Launch
-            </button>
           </>
         )}
 
