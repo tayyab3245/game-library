@@ -30,8 +30,9 @@ const GameShelf: React.FC<GameShelfProps> = ({
   textures = [],
   width = '100%',
   height = '100%',
-  frontWidthUnits = 8,
-  frontHeightUnits = 8,
+  /* bigger covers by default */
+  frontWidthUnits = 12,
+  frontHeightUnits = 12,
   onSelect,
   onLongPress, 
 }) => {
@@ -722,7 +723,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
   return (
     <div
       ref={container}
-      style={{ width, height, position: 'relative', overflow: 'hidden', userSelect: 'none', touchAction: 'none' }}
+      style={{ width, height, position: 'relative', overflow: 'visible', userSelect: 'none', touchAction: 'none' }}
     >
       {/* ← arrow */}
       <div
@@ -733,22 +734,33 @@ const GameShelf: React.FC<GameShelfProps> = ({
           left: 0,
           top: '50%',
           transform: 'translateY(-50%)',
-          width: 70,
-          height: 120,
-          borderTopRightRadius: 60,
-          borderBottomRightRadius: 60,
-          background: '#ffbe32',
-          boxShadow: '0 4px 12px rgba(0,0,0,.4)',
+          width: 130,
+          height: 130,
+          borderTopRightRadius: 80,
+          borderBottomRightRadius: 80,
+          background: 'linear-gradient(180deg, #3b404d 0%, #1d1f26 100%)',
+          boxShadow: '0 1.2em 1.6em rgba(0,0,0,.7), 0 .05em .05em -.01em rgba(5,5,5,1), 0 .01em .01em -.01em rgba(5,5,5,.5), .2em .4em .15em -.03em rgba(5,5,5,.25)',
           display: 'flex',
+          color: '#ffffff',
+          fontSize: 64,
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          transition: 'transform .15s',
+          transition: 'transform .15s, filter .12s',
+          /* thin bottom rim highlight to match command-bar */
+          boxSizing: 'border-box',
+          borderBottom: '2px solid rgba(255,255,255,.12)',
         }}
-        onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-50%) scale(1.05)')}
-        onMouseLeave={e => {
+        onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
+          const tgt = e.currentTarget;
+          tgt.style.transform = 'translateY(-50%) scale(1.05)';
+          tgt.style.filter    = 'brightness(1.25)';
+        }}
+        onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
           stopHold();
-          e.currentTarget.style.transform = 'translateY(-50%)';
+          const tgt = e.currentTarget;
+          tgt.style.transform = 'translateY(-50%)';
+          tgt.style.filter    = '';
         }}
       >
         &#9664;
@@ -763,22 +775,32 @@ const GameShelf: React.FC<GameShelfProps> = ({
           right: 0,
           top: '50%',
           transform: 'translateY(-50%)',
-          width: 70,
-          height: 120,
-          borderTopLeftRadius: 60,
-          borderBottomLeftRadius: 60,
-          background: '#ffbe32',
-          boxShadow: '0 4px 12px rgba(0,0,0,.4)',
+          width: 130,
+          height: 130,
+          borderTopLeftRadius: 80,
+          borderBottomLeftRadius: 80,
+          background: 'linear-gradient(180deg, #3b404d 0%, #1d1f26 100%)',
+          boxShadow: '0 .6em 1.2em rgba(0,0,0,.6), 0 .05em .05em -.01em rgba(5,5,5,1), 0 .01em .01em -.01em rgba(5,5,5,.5), .2em .4em .15em -.03em rgba(5,5,5,.25)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          transition: 'transform .15s',
+          transition: 'transform .15s, filter .12s',
+          color: '#ffffff',
+          fontSize: 64,                  /* big white triangle */
+          boxSizing: 'border-box',
+          borderBottom: '2px solid rgba(255,255,255,.12)',
         }}
-        onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-50%) scale(1.05)')}
-        onMouseLeave={e => {
+        onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
+          const tgt = e.currentTarget;
+          tgt.style.transform = 'translateY(-50%) scale(1.05)';
+          tgt.style.filter    = 'brightness(1.25)';
+        }}
+        onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
           stopHold();
-          e.currentTarget.style.transform = 'translateY(-50%)';
+          const tgt = e.currentTarget;
+          tgt.style.transform = 'translateY(-50%)';
+          tgt.style.filter    = '';
         }}
       >
         &#9654;

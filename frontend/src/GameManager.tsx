@@ -7,7 +7,7 @@ import { styles } from "./styles/GameManager.styles";
 import { neonBtn } from "./utils/styles";
 import useGames, { Game } from "./hooks/useGames";
 import SoundManager from "./utils/SoundManager";
-import CommandDock from "./components/CommandDock";
+import CommandBar from "./components/CommandBar";
 
 export default function GameManager() {
   const ADD_MARKER = "__ADD__";           // sentinel for “Add Game” cube
@@ -163,7 +163,7 @@ export default function GameManager() {
     SoundManager.playUISelect();
   };
 
-  const SHELF_H = Math.min(400, vw * 0.6);
+  const SHELF_H = Math.min(520, vw * 0.);
   const titleChanged = editTitle.trim() !== (selGame?.title.trim() ?? "").trim();
   const canLaunch   = !!selGame && romExists && emuExists;
  
@@ -246,11 +246,9 @@ export default function GameManager() {
           }}
         />
       )}
-            {/* ────────── Bottom Command Dock ────────── */}
-      <CommandDock
+            {/* ────────── Bottom Command Bar ────────── */}
+      <CommandBar
         canLaunch={canLaunch}
-        emulatorFound={emuExists}
-        romFound={romExists}
         editEnabled={selIdx !== null}
         onLaunch={() => {
           SoundManager.playUISelect();
