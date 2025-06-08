@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 const API = 'http://localhost:3001';
 
-export type Platform = 'Switch' | '3DS' | 'PSP' | 'GameBoy' | '2DS' | 'Wii';
+export type Platform =  '3DS';
 
 
 export interface Game {
@@ -13,6 +13,7 @@ export interface Game {
   imageUrl: string;
   romPath: string;
   emuPath: string;
+  hoursPlayed: number;
 }
 
 export default function useGames() {

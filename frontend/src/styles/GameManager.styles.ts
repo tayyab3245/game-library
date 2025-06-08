@@ -40,4 +40,11 @@ export const styles: StyleMap = {
     textAlign: 'center',
     margin: '8px 0 0 0',
   },
+    hoursText: {
+    color: '#ccc',
+    fontSize: 16,
+    fontWeight: 400,
+    textAlign: 'center',
+    margin: '4px 0 0 0',
+  },
 };

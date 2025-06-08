@@ -49,8 +49,23 @@ db.serialize(() => {
       fileSizeMB INTEGER,
       isPatched INTEGER DEFAULT 0,
       imageUrl TEXT
+      hoursPlayed INTEGER DEFAULT 0
     )
   `);
+    // Migrate existing DBs lacking the hoursPlayed column
+  db.all(`PRAGMA table_info(games);`, (err, rows) => {
+    if (err) {
+      console.error('Failed to read table info:', err.message);
+      return;
+    }
+    const hasColumn = rows.some(r => r.name === 'hoursPlayed');
+    if (!hasColumn) {
+      db.run(`ALTER TABLE games ADD COLUMN hoursPlayed INTEGER DEFAULT 0`, err2 => {
+        if (err2) console.error('Failed to add hoursPlayed column:', err2.message);
+        else console.log('Migrated: added hoursPlayed column to games table.');
+      });
+    }
+  });
 });
 
 // Helpers
@@ -84,15 +99,15 @@ app.get('/api', async (req, res) => {
 });
 
 app.post('/api', upload.single('cover'), async (req, res) => {
-  const { title, platform, romPath, emuPath, region, fileName, fileSizeMB, isPatched } = req.body;
+  const { title, platform, romPath, emuPath, region, fileName, fileSizeMB, isPatched, hoursPlayed } = req.body;
   const imageUrl = req.file ? `/covers/${req.file.filename}` : null;
 
   try {
     const result = await runDbQuery(
       `
       INSERT INTO games
-        (title, platform, romPath, emuPath, region, fileName, fileSizeMB, isPatched, imageUrl)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (title, platform, romPath, emuPath, region, fileName, fileSizeMB, isPatched, imageUrl, hoursPlayed)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       [
         title,
@@ -104,6 +119,7 @@ app.post('/api', upload.single('cover'), async (req, res) => {
         fileSizeMB || 0,
         isPatched ? 1 : 0,
         imageUrl,
+        hoursPlayed || 0
       ]
     );
     console.log(`[POST] /api — Added game "${title}" (ID: ${result.lastID})`);
@@ -126,6 +142,7 @@ app.put('/api/:id', upload.single('cover'), async (req, res) => {
     'fileSizeMB',
     'isPatched',
     'imageUrl',
+    'hoursPlayed',
   ];
 
   // If a new cover image was uploaded, delete the previous file
@@ -207,8 +224,8 @@ app.put('/api', async (req, res) => {
       await runDbQuery(
         `
         INSERT INTO games
-          (title, platform, romPath, emuPath, region, fileName, fileSizeMB, isPatched, imageUrl)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (title, platform, romPath, emuPath, region, fileName, fileSizeMB, isPatched, imageUrl, hoursPlayed)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         [
           g.title,
@@ -220,6 +237,7 @@ app.put('/api', async (req, res) => {
           g.fileSizeMB || 0,
           g.isPatched || 0,
           g.imageUrl || null,
+          g.hoursPlayed || 0, 
         ]
       );
     }

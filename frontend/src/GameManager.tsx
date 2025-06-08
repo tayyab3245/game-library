@@ -198,6 +198,11 @@ export default function GameManager() {
       {/* header removed per new layout */}
 
       <h2 style={styles.gameTitle}>{selGame?.title ?? "Select a game"}</h2>
+            {selGame && (
+        <div style={styles.hoursText}>
+          {selGame.hoursPlayed} hour{selGame.hoursPlayed === 1 ? '' : 's'} played
+        </div>
+      )}
       <div style={{ width: "100%", height: SHELF_H, marginTop: 16 }}>
         <GameShelf
           textures={[...games.map((g) => `${API}${g.imageUrl}`), ADD_MARKER]}
