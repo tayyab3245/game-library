@@ -13,6 +13,7 @@ export interface GameShelfProps {
   frontHeightUnits?: number;  
   onSelect?: (idx: number | null) => void;  
   onLongPress?: (idx: number) => void;       
+  rows?: 1 | 2;                // NEW – single or double row
 }
 
 
@@ -35,6 +36,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
   frontHeightUnits = 12,
   onSelect,
   onLongPress, 
+  rows = 1,                   // default: single row
 }) => {
 
 
@@ -51,6 +53,9 @@ const GameShelf: React.FC<GameShelfProps> = ({
   /** shelf X-bounds after every layout pass */
   const bounds = useRef<{ min: number; max: number }>({ min: 0, max: 0 });
 
+    /* first-gesture flag for background music  */
+  const hasPlayedBackground = useRef(false);
+
   const clamp = (v: number, lo: number, hi: number) =>
     v < lo ? lo : v > hi ? hi : v;
 
@@ -59,11 +64,22 @@ const GameShelf: React.FC<GameShelfProps> = ({
     a.length === b.length && a.every((v, i) => v === b[i]);
 
 
-  const hasPlayedBackground = useRef(false);
+  /* remember the last rows value */
+  const prevRows = useRef<1 | 2>(rows);
 
   // track which mesh is currently centred so we know when to “click”-advance
   const currentCenterIdx = useRef<number | null>(null);
-
+  /* background shell behind the shelf */
+  const shellStyle: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    borderRadius: 40,
+    /* a hair darker + softer shadow → less “3-D”, more backdrop */
+    background: 'linear-gradient(180deg, #2e323c 0%, #1a1c22 100%)',
+    boxShadow: '0 0.6em 1em rgba(0,0,0,.55)',
+    pointerEvents: 'none',
+    zIndex: -1,               // push the shell *under* the canvas
+  };
   /** ----------------------------------------------------------
    *  Helpers
    * --------------------------------------------------------- */
@@ -434,11 +450,16 @@ const GameShelf: React.FC<GameShelfProps> = ({
     }
   };
 
-  /* 5. TEXTURE LOADING + MESH UPDATE (runs whenever `textures` actually changes) */
+  /* 5. TEXTURE LOADING + MESH UPDATE (runs whenever textures **or rows** change) */
   useEffect(() => {
     if (!renderer.current) return;
-    if (same(urls.current, textures)) return;
-    urls.current = textures.slice();
+
+    const texturesChanged = !same(urls.current, textures);
+    const rowSwitch       = prevRows.current !== rows;
+    if (!texturesChanged && !rowSwitch) return;   // nothing to do
+
+    if (texturesChanged) urls.current = textures.slice();
+    prevRows.current = rows;
 
     const loader = new THREE.TextureLoader();
     loader.setCrossOrigin('anonymous');
@@ -618,18 +639,18 @@ const GameShelf: React.FC<GameShelfProps> = ({
       /* 5c. Load texture if URL changed */
       if (url === ADD_MARKER) {
         mesh.userData.isAdd = true;                       // “add” cube
-        /* plain lighter plate ---------------------------------------------------- */
-        const plateMat = new THREE.MeshBasicMaterial({ color: 0x2a2a2f });
-        mesh.material = [plateMat, plateMat, plateMat, plateMat, plateMat, plateMat];
+        /* make the cube invisible – we only keep it for hit-testing & spacing */
+        const invisible = new THREE.MeshBasicMaterial({ transparent:true, opacity:0 });
+        mesh.material = Array(6).fill(invisible);
 
         /* 3-D yellow “+” --------------------------------------------------------- */
         if (!mesh.userData.plusBuilt) {
-          const barT = boxW * 0.12;                       // thickness
-          const barL = boxW * 0.50;                       // length
-          const barD = boxD * 0.3;                        // depth
-          const r    = barT * 0.4;                        // bevel
-          const barGeoH = new RoundedBoxGeometry(barL, barT, barD, 4, r);
-          const barGeoV = new RoundedBoxGeometry(barT, barL, barD, 4, r);
+          const barT = boxW * 0.10;                       // thickness
+          const barL = boxW * 0.46;                       // length
+          const barD = boxD * 0.35;
+          const r    = barT * 0.9;                        // bevel
+          const barGeoH = new RoundedBoxGeometry(barL, barT, barD, 6, r);
+          const barGeoV = new RoundedBoxGeometry(barT, barL, barD, 6, r);
           const barMat  = new THREE.MeshBasicMaterial({ color: 0xffbe32 });
           const barH = new THREE.Mesh(barGeoH, barMat);
           const barV = new THREE.Mesh(barGeoV, barMat);
@@ -680,16 +701,36 @@ const GameShelf: React.FC<GameShelfProps> = ({
         return sum + w + pad;
       }, 0) + Math.max(0, all.length - 1) * (GAP + (all[0]?.userData.padding || 0));
 
-    let cursor = -totalWidth / 2;
-      all.forEach((m) => {
+    /* ----------- lay out one or two rows ---------------------------------- */
+    const ROW_GAP = BOX_H * 1.5;
+
+    const rowsArr: THREE.Mesh[][] = rows === 2
+      ? [ all.filter((_,idx)=>idx%2===0),  all.filter((_,idx)=>idx%2===1) ]
+      : [ all ];
+
+    rowsArr.forEach((rowMeshes,rowIdx)=>{
+      /* width of this particular row */
+    const rowW =
+      rowMeshes.reduce(
+        (s, m) =>
+          s +
+          ((m.userData.actualWidth as number) +
+            (m.userData.padding as number || 0)),
+        0,
+      ) +
+      Math.max(0, rowMeshes.length - 1) *
+        (GAP + (rowMeshes[0]?.userData.padding || 0));
+
+      let cursor = -rowW/2;
+      rowMeshes.forEach(m=>{
           const w = (m.userData.actualWidth as number) || frontWidthUnits;
           const pad = (m.userData.padding as number) || 0;
           const half = (w + pad) / 2;
           const boxH = (m.userData.actualHeight as number);
           const boxD = (m.userData.actualDepth as number);
-          // Position box on “ground” (y=0)
-          m.position.set(cursor + half, 0, 0);
-          m.userData.homeY = 0;
+          const yOffset = rows === 2 ? (rowIdx===0 ?  ROW_GAP/2 : -ROW_GAP/2) : 0;
+          m.position.set(cursor + half, yOffset, 0);
+          m.userData.homeY = yOffset;
           // Position vertical shadow “wall” behind box
           if (!m.userData.isAdd && m.userData.shadow && m.userData.outline) {
             const shadow  = m.userData.shadow   as THREE.Mesh;
@@ -699,32 +740,38 @@ const GameShelf: React.FC<GameShelfProps> = ({
             outline.rotation.copy(shadow.rotation);
             outline.visible = selected.current === m;
           }
-          cursor += w + pad + GAP + 2.5 ;  // space between each game object + container
+          cursor += w + pad + GAP + 2.5;
+      });
     });
 
     
     /* ---------- compute pan limits (first & last cover centred) ---------- */
     if (all.length) {
-      const firstCenter = all[0].position.x;
+      /* bounds are based on the *upper* row */
+      const firstCenter = rowsArr[0][0].position.x;
       /* exclude any trailing “add” cube from the pan-bounds so it can’t be
          centred via arrows or drag scrolling                                      */
-      let lastIdx = all.length - 1;
-      while (lastIdx >= 0 && all[lastIdx].userData.isAdd) lastIdx--;
-      const lastCenter = all[lastIdx]?.position.x ?? 0;
+     let lastIdx = rowsArr[0].length - 1;
+      while (lastIdx >= 0 && rowsArr[0][lastIdx].userData.isAdd) lastIdx--;
+      const lastCenter = rowsArr[0][lastIdx]?.position.x ?? 0;
       bounds.current.min = -lastCenter;
       bounds.current.max = -firstCenter;
       shelf.current.position.x = clamp(shelf.current.position.x, bounds.current.min, bounds.current.max);
     }
 
-  }, [textures, frontWidthUnits, frontHeightUnits]);
+    /* add `rows` so layout updates when you press the toggle */
+  }, [textures, frontWidthUnits, frontHeightUnits, rows]);
 
 
   /* 6. Render container div */
   return (
     <div
       ref={container}
-      style={{ width, height, position: 'relative', overflow: 'visible', userSelect: 'none', touchAction: 'none' }}
+          /* new z-index starts a stacking context so the shell’s -1 stays local */
+      style={{ width, height, position: 'relative', overflow: 'visible', userSelect: 'none', touchAction: 'none', zIndex: 0 }}
     >
+     {/* backdrop shell – now lives *under* the WebGL canvas */}
+      <div style={shellStyle} />
       {/* ← arrow */}
       <div
         onMouseDown={() => startHold(-1)}
@@ -734,12 +781,13 @@ const GameShelf: React.FC<GameShelfProps> = ({
           left: 0,
           top: '50%',
           transform: 'translateY(-50%)',
-          width: 130,
-          height: 130,
-          borderTopRightRadius: 80,
-          borderBottomRightRadius: 80,
+          width: 140,
+          height: 140,
+          /* rounder quarter-circle outer edge */
+          borderTopRightRadius: 100,
+         borderBottomRightRadius: 100,
           background: 'linear-gradient(180deg, #3b404d 0%, #1d1f26 100%)',
-          boxShadow: '0 1.2em 1.6em rgba(0,0,0,.7), 0 .05em .05em -.01em rgba(5,5,5,1), 0 .01em .01em -.01em rgba(5,5,5,.5), .2em .4em .15em -.03em rgba(5,5,5,.25)',
+          boxShadow: '0 0.9em 1.4em rgba(0,0,0,.65), 0 .04em .04em -.01em rgba(5,5,5,1), 0 .008em .008em -.01em rgba(5,5,5,.5), .18em .36em .14em -.03em rgba(5,5,5,.25)',
           display: 'flex',
           color: '#ffffff',
           fontSize: 64,
@@ -775,12 +823,12 @@ const GameShelf: React.FC<GameShelfProps> = ({
           right: 0,
           top: '50%',
           transform: 'translateY(-50%)',
-          width: 130,
-          height: 130,
-          borderTopLeftRadius: 80,
-          borderBottomLeftRadius: 80,
+          width: 140,
+          height: 140,
+          borderTopLeftRadius: 100,
+          borderBottomLeftRadius: 100,
           background: 'linear-gradient(180deg, #3b404d 0%, #1d1f26 100%)',
-          boxShadow: '0 .6em 1.2em rgba(0,0,0,.6), 0 .05em .05em -.01em rgba(5,5,5,1), 0 .01em .01em -.01em rgba(5,5,5,.5), .2em .4em .15em -.03em rgba(5,5,5,.25)',
+          boxShadow: '0 .8em 1.4em rgba(0,0,0,.6), 0 .04em .04em -.01em rgba(5,5,5,1), 0 .008em .008em -.01em rgba(5,5,5,.5), .18em .36em .14em -.03em rgba(5,5,5,.25)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -808,5 +856,4 @@ const GameShelf: React.FC<GameShelfProps> = ({
     </div>
   );
 };
-
 export default GameShelf;

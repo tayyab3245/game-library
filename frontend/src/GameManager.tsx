@@ -1,6 +1,6 @@
 // src/GameManager.tsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect } from "react";
 import GameShelf from "./components/GameShelf";
 import AddGameModal, { GameForm } from "./components/AddGameModal";
 import { styles } from "./styles/GameManager.styles";
@@ -13,7 +13,8 @@ export default function GameManager() {
   const ADD_MARKER = "__ADD__";           // sentinel for “Add Game” cube
   const { games, loadGames, API } = useGames();
 
-  const [selIdx, setSelIdx] = useState<number | null>(null);
+  const [selIdx, setSelIdx]   = useState<number | null>(null);
+  const [rowMode, setRowMode] = useState<1|2>(1);           // NEW
   const [editTitle, setEditTitle] = useState("");
   const [updating, setUpdating] = useState(false);
   const [flashOk, setFlashOk] = useState(false);
@@ -163,9 +164,38 @@ export default function GameManager() {
     SoundManager.playUISelect();
   };
 
-  const SHELF_H = Math.min(520, vw * 0.);
+  const SHELF_H = Math.min(720, vw * 0.9);
   const titleChanged = editTitle.trim() !== (selGame?.title.trim() ?? "").trim();
   const canLaunch   = !!selGame && romExists && emuExists;
+  /* ───────── inject 3DS-style capsule CSS once ───────── */
+useLayoutEffect(()=>{
+  const s=document.createElement('style');s.innerHTML=`
+  .view-toggle{position:absolute;left:20px;top:12px;height:48px;display:flex;
+    /* square-ish, beveled capsule */
+    border-radius:14px;overflow:hidden;background:
+     linear-gradient(-35deg,rgba(255,255,255,.07) 0%,transparent 60%),
+     linear-gradient(180deg,#3b404d 0%,#1d1f26 100%);
+    background-blend-mode:soft-light;box-shadow:
+      0 .04em .04em -.01em rgba(5,5,5,1),
+      0 .008em .008em -.01em rgba(5,5,5,.5),
+      .18em .36em .14em -.03em rgba(5,5,5,.25);
+    }
+  .view-toggle .seg{width:48px;height:48px;display:flex;align-items:center;justify-content:center;
+    border:none;background:transparent;color:#fff;
+    font:700 22px/1 "Inter",sans-serif;cursor:pointer;user-select:none;
+    transition:filter .12s,transform .12s;position:relative;}
+  .view-toggle .seg::before{content:"";position:absolute;inset:0;
+    background:rgba(255,255,255,.08);opacity:.06;transition:opacity .12s;}
+  .view-toggle .seg:hover::before{opacity:.35;}
+  .view-toggle .seg:active{transform:translateY(.07em);}
+  .view-toggle .seg:first-child::after{content:"";position:absolute;right:0;top:6px;bottom:6px;width:2px;
+    background:linear-gradient(180deg,rgba(255,255,255,.17) 0 25%,rgba(0,0,0,.60) 25% 75%,rgba(255,255,255,.17) 75% 100%);
+    box-shadow:0 0 6px rgba(255,255,255,.40);}
+  .view-toggle .active::before{opacity:.45;background:rgba(0,0,0,.25);}
+  `;
+  document.head.appendChild(s);return()=>{document.head.removeChild(s);}
+},[]);
+
  
   
   /* helpers */
@@ -213,12 +243,30 @@ export default function GameManager() {
           )}
         </div>
         <span style={styles.dateTime}>{now.toLocaleString()}</span>
+        {/* ───── View-toggle capsule ───── */}
+        <div className="view-toggle" data-ui>
+          <button
+            className={`seg ${rowMode===1?'active':''}`}
+            title="Single row"
+            onPointerUp={()=>{ setRowMode(1); SoundManager.playUISelect(); }}
+          >
+            ▢
+          </button>
+          <button
+            className={`seg ${rowMode===2?'active':''}`}
+            title="Double row"
+            onPointerUp={()=>{ setRowMode(2); SoundManager.playUISelect(); }}
+          >
+            ▤
+          </button>
+        </div>
       </div>
         <div style={{ ...styles.middle, height: SHELF_H }}>
         <GameShelf
           textures={[...games.map((g) => `${API}${g.imageUrl}`), ADD_MARKER]}
           width="100%"
           height="100%"
+          rows={rowMode}
           onSelect={handleSelectFromShelf}
           onLongPress={handleLongPressFromShelf}
         />

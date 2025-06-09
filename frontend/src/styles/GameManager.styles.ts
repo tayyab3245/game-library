@@ -31,12 +31,12 @@ export const styles: StyleMap = {
     textAlign: 'center',
   },
   middle: {
-    flex: 1,
+    /* fill remaining space – centres GameShelf perfectly */
+    flex: '1 1 1',
     display: 'flex',
-    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 16,
+    padding: '16px 0',
   },
   hours: {
     fontSize: 16,
