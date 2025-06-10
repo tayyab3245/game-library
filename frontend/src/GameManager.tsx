@@ -14,7 +14,7 @@ export default function GameManager() {
   const { games, loadGames, API } = useGames();
 
   const [selIdx, setSelIdx]   = useState<number | null>(null);
-  const [rowMode, setRowMode] = useState<1|2>(1);           // NEW
+  const [rowMode, setRowMode] = useState<1 | 2 | 4>(1);     // allow 4 rows
   const [editTitle, setEditTitle] = useState("");
   const [updating, setUpdating] = useState(false);
   const [flashOk, setFlashOk] = useState(false);
@@ -257,7 +257,14 @@ useLayoutEffect(()=>{
             title="Double row"
             onPointerUp={()=>{ setRowMode(2); SoundManager.playUISelect(); }}
           >
-            ▤
+            ⊟
+          </button>
+            <button
+            className={`seg ${rowMode===4?'active':''}`}
+            title="Quad row"
+            onPointerUp={()=>{ setRowMode(4); SoundManager.playUISelect(); }}
+          >
+            ⊞
           </button>
         </div>
       </div>

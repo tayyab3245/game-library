@@ -16,8 +16,17 @@ export const styles: StyleMap = {
   },
   header: {
     position: 'relative',
-    padding: '12px 24px 32px 24px',
-    background: '#1e1e24',
+    minHeight: 120,
+    padding: '20px 32px 40px 32px',
+    borderRadius: '0 0 48px 48px',
+    background:
+      'linear-gradient(-35deg,rgba(255,255,255,.07) 0%,transparent 60%),' +
+      'linear-gradient(180deg,#3b404d 0%,#1d1f26 100%)',
+    backgroundBlendMode: 'soft-light',
+    boxShadow:
+      '0 .05em .05em -.01em rgba(5,5,5,1),' +
+      '0 .01em .01em -.01em rgba(5,5,5,.5),' +
+      '.18em .36em .14em -.03em rgba(5,5,5,.25)',
     color: '#fff',
   },
     dateTime: {

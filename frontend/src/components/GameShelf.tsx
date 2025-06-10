@@ -13,7 +13,7 @@ export interface GameShelfProps {
   frontHeightUnits?: number;  
   onSelect?: (idx: number | null) => void;  
   onLongPress?: (idx: number) => void;       
-  rows?: 1 | 2;                // NEW – single or double row
+  rows?: 1 | 2 | 4;            // 1 / 2 / 4 rows
 }
 
 
@@ -48,8 +48,12 @@ const GameShelf: React.FC<GameShelfProps> = ({
   const meshes    = useRef<THREE.Mesh[]>([]);
   const urls      = useRef<string[]>([]);
   const selected  = useRef<THREE.Mesh | null>(null);
-  /** scale used for every active cover (manual or auto) */
-  const SELECT_SCALE = 1.35;
+  /* cover size multipliers (tuned for full-grid fit)               *
+   *  – 1 row  : big “hero” covers
+   *  – 2 rows : half-height grid
+   *  – 4 rows : quarter-height grid (needs to be tiny)             */
+  /* tuned to fit inside the shell on a 1080-pixel-tall window */
+  const SCALE = {1:1.15, 2:0.48, 4:0.26} as const;
   /** shelf X-bounds after every layout pass */
   const bounds = useRef<{ min: number; max: number }>({ min: 0, max: 0 });
 
@@ -65,7 +69,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
 
 
   /* remember the last rows value */
-  const prevRows = useRef<1 | 2>(rows);
+  const prevRows = useRef<1 | 2 | 4>(rows);
 
   // track which mesh is currently centred so we know when to “click”-advance
   const currentCenterIdx = useRef<number | null>(null);
@@ -102,7 +106,8 @@ const GameShelf: React.FC<GameShelfProps> = ({
     }
 
     // mark new
-    mesh.scale.set(SELECT_SCALE, SELECT_SCALE, SELECT_SCALE);
+    const scale = SCALE[rows];
+    mesh.scale.set(scale, scale, scale);
     const outline = mesh.userData.outline as THREE.Object3D;
     if (outline) outline.visible = true;
 
@@ -190,8 +195,8 @@ const GameShelf: React.FC<GameShelfProps> = ({
   const BOX_D = _BASE_D * DEPTH_FACTOR;
   const BOX_H = BOX_W  * PANEL_RATIO;
 
-  const GAP   = BOX_W * 0.25;
-  const HOVER = BOX_H * 0.03;
+  /* base hover – row-scale is applied in the render-loop */
+  const HOVER_BASE = BOX_H * 0.03;
 
   /* 4. INIT: scene + camera + pointer + hover  (run only once, on mount)*/
   useEffect(() => {
@@ -407,7 +412,8 @@ const GameShelf: React.FC<GameShelfProps> = ({
       const t = clock.getElapsedTime();
       meshes.current.forEach(m => {
         const ph = m.userData.ph as number;
-        m.position.y = (m.userData.homeY || 0) + Math.sin(t * 1.2 + ph) * HOVER;
+        m.position.y = (m.userData.homeY || 0) +
+                       Math.sin(t * 1.2 + ph) * (HOVER_BASE * SCALE[rows]);
       });
       renderer.current.render(scene.current, camera.current);
     };
@@ -470,9 +476,14 @@ const GameShelf: React.FC<GameShelfProps> = ({
       const scaleH = frontHeightUnits / (FULL_H_3DS * HEIGHT_RATIO_3DS);
       const scale  = Math.min(scaleW, scaleH);
 
-      const boxW = FRONT_3DS * scale * WIDTH_FACTOR;   // new width
+      /* active size-multiplier (1-row = 1.0) */
+      const mul  = SCALE[rows];
+      const boxW = FRONT_3DS * scale * WIDTH_FACTOR * mul;
       const boxH = boxW * PANEL_RATIO;                 // derived height
-      const boxD = SPINE_3DS * scale * DEPTH_FACTOR;   // thinner spine
+      const boxD = SPINE_3DS * scale * DEPTH_FACTOR * mul;
+        /* gap proportional to cover width (≈ 25 %) */
+      /* horizontal gap ≈ 18 % of cover (tighter grid) */
+      const GAP_W = boxW * 0.18;      /* horizontal gap ≈ 18 % */
 
       /* 5b. Create or reuse mesh */
       let mesh = meshes.current[i];
@@ -692,75 +703,58 @@ const GameShelf: React.FC<GameShelfProps> = ({
       m.geometry.dispose();
     }
 
-    // Layout: center row with gaps
-    const all = meshes.current;
-    const totalWidth =
-      all.reduce((sum, m) => {
-        const w = (m.userData.actualWidth as number) || frontWidthUnits;
-        const pad = (m.userData.padding as number) || 0;
-        return sum + w + pad;
-      }, 0) + Math.max(0, all.length - 1) * (GAP + (all[0]?.userData.padding || 0));
+    /* ───────────── ROW LAYOUT (row-major, even gaps) ───────────── */
+    const all    = meshes.current;
+    const mul    = SCALE[rows];
+    const itemW  = BOX_W * mul;              // uniform cover width
+    const itemH  = BOX_H * mul;
+    const gapX   = itemW * 0.25;             // extra breathing room (perspective & hover)
+    const gapY   = itemH * 0.85;             // pushes rows apart
+    const cols   = Math.ceil(all.length / rows);   // every row gets same #cols
 
-    /* ----------- lay out one or two rows ---------------------------------- */
-    const ROW_GAP = BOX_H * 1.5;
+    /* identical width for every row → easy centring */
+    const rowW   = cols * itemW + (cols - 1) * gapX;
 
-    const rowsArr: THREE.Mesh[][] = rows === 2
-      ? [ all.filter((_,idx)=>idx%2===0),  all.filter((_,idx)=>idx%2===1) ]
-      : [ all ];
+    all.forEach((m, i) => {
+      const r = Math.floor(i / cols);        // row 0…rows-1
+      const c = i % cols;                    // col 0…cols-1
 
-    rowsArr.forEach((rowMeshes,rowIdx)=>{
-      /* width of this particular row */
-    const rowW =
-      rowMeshes.reduce(
-        (s, m) =>
-          s +
-          ((m.userData.actualWidth as number) +
-            (m.userData.padding as number || 0)),
-        0,
-      ) +
-      Math.max(0, rowMeshes.length - 1) *
-        (GAP + (rowMeshes[0]?.userData.padding || 0));
+      const x = (c - (cols - 1) / 2) * (itemW + gapX);
+     const y = ((rows - 1) / 2 - r) * gapY;
 
-      let cursor = -rowW/2;
-      rowMeshes.forEach(m=>{
-          const w = (m.userData.actualWidth as number) || frontWidthUnits;
-          const pad = (m.userData.padding as number) || 0;
-          const half = (w + pad) / 2;
-          const boxH = (m.userData.actualHeight as number);
-          const boxD = (m.userData.actualDepth as number);
-          const yOffset = rows === 2 ? (rowIdx===0 ?  ROW_GAP/2 : -ROW_GAP/2) : 0;
-          m.position.set(cursor + half, yOffset, 0);
-          m.userData.homeY = yOffset;
-          // Position vertical shadow “wall” behind box
-          if (!m.userData.isAdd && m.userData.shadow && m.userData.outline) {
-            const shadow  = m.userData.shadow   as THREE.Mesh;
-            const outline = m.userData.outline  as THREE.Object3D;
-            shadow.position.set(cursor + half, 0, boxD / 2 + 0.01);
-            outline.position.copy(shadow.position);
-            outline.rotation.copy(shadow.rotation);
-            outline.visible = selected.current === m;
-          }
-          cursor += w + pad + GAP + 2.5;
-      });
+      m.position.set(x, y, 0);
+      m.userData.homeY = y;
+
+      if (!m.userData.isAdd && m.userData.shadow && m.userData.outline) {
+        const z = (m.userData.actualDepth as number) / 2 + 0.01;
+        m.userData.shadow.position.set(x, y, z);
+        m.userData.outline.position.set(x, y, z);
+        m.userData.outline.visible = selected.current === m;
+      }
     });
 
-    
-    /* ---------- compute pan limits (first & last cover centred) ---------- */
-    if (all.length) {
-      /* bounds are based on the *upper* row */
-      const firstCenter = rowsArr[0][0].position.x;
-      /* exclude any trailing “add” cube from the pan-bounds so it can’t be
-         centred via arrows or drag scrolling                                      */
-     let lastIdx = rowsArr[0].length - 1;
-      while (lastIdx >= 0 && rowsArr[0][lastIdx].userData.isAdd) lastIdx--;
-      const lastCenter = rowsArr[0][lastIdx]?.position.x ?? 0;
-      bounds.current.min = -lastCenter;
-      bounds.current.max = -firstCenter;
-      shelf.current.position.x = clamp(shelf.current.position.x, bounds.current.min, bounds.current.max);
+    /* ------------ update camera Z so every grid fits on screen ----------- */
+    camera.current.position.z = BOX_H *
+      (rows === 1 ? 3.6 : rows === 2 ? 6.8 : 12.0);
+
+    /* pan limits: first & last columns can be centred */
+    bounds.current.min = -((cols - 1) / 2) * (itemW + gapX);
+    bounds.current.max =  ((cols - 1) / 2) * (itemW + gapX);
+
+    /* keep selection centred after row-switch */
+    if (selected.current) {
+      const worldX = selected.current.position.x + shelf.current.position.x;
+      shelf.current.position.x -= worldX;
+    } else {
+      shelf.current.position.x = clamp(
+        shelf.current.position.x,
+        bounds.current.min,
+        bounds.current.max,
+      );
     }
 
-    /* add `rows` so layout updates when you press the toggle */
-  }, [textures, frontWidthUnits, frontHeightUnits, rows]);
+    /* re-run when textures or row-count change */
+  }, [textures, rows, frontWidthUnits, frontHeightUnits]);
 
 
   /* 6. Render container div */
