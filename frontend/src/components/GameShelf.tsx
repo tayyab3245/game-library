@@ -1,6 +1,6 @@
 // src/components/GameShelf.tsx
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry';
 import SoundManager from '../utils/SoundManager';
@@ -47,6 +47,9 @@ const GameShelf: React.FC<GameShelfProps> = ({
   const shelf     = useRef<THREE.Group>(null!);
   const meshes    = useRef<THREE.Mesh[]>([]);
   const selectedRef = useRef<THREE.Mesh | null>(null);
+  const urls      = useRef<string[]>([]); 
+  const shellDiv  = useRef<HTMLDivElement>(null);
+  
   /* per-layout tuning so single-, double- and quad-row views can be
    * customised independently. Each entry defines:
    *  - scale : base size multiplier for covers
@@ -119,6 +122,8 @@ const GameShelf: React.FC<GameShelfProps> = ({
     // slide shelf so this mesh is centred (world-X === 0)
     const worldX = mesh.position.x + shelf.current.position.x;
     shelf.current.position.x -= worldX;
+      // ++ sync CSS shell on select
+   shellDiv.current!.style.transform = `translateX(${shelf.current.position.x}px)`;
 
     // notify
     currentCenterIdx.current = meshes.current.indexOf(mesh);
@@ -353,6 +358,13 @@ const GameShelf: React.FC<GameShelfProps> = ({
           bounds.current.min,
           bounds.current.max,
         );
+        
+        // ++ sync CSS shell on pan
+        shellDiv.current!.style.transform = `translateX(${shelf.current.position.x}px)`;
+          // sync existing CSS shell
+        if (shellDiv.current) {
+          shellDiv.current.style.transform = `translateX(${shelf.current.position.x}px)`;
+        }
 
         // check centre change (skip the “add” cube)
         let nearest = -1, nearestDist = Infinity;
@@ -439,21 +451,27 @@ const GameShelf: React.FC<GameShelfProps> = ({
 
 
   /* ---------- arrow buttons (click / hold) -------------------------------- */
-  const holdTid = useRef<number | null>(null);
+const holdTid = useRef<number | null>(null);   // interval id
+const holdDir = useRef<-1 | 1>(1);            // current left / right
   const STEP = () => {
     if (currentCenterIdx.current === null) return;
     const next = clamp(
-      currentCenterIdx.current + (holdTid.current === -1 ? -1 : 1),
+      currentCenterIdx.current + holdDir.current,
       0,
       Math.max(0, meshes.current.length - 2),   // skip trailing “add” cube
     );
     if (next !== currentCenterIdx.current) selectMesh(meshes.current[next], true);
   };
-  const startHold = (dir: -1 | 1) => {
-    holdTid.current = dir;           // save direction in ref
-    STEP();
-    holdTid.current = window.setInterval(STEP, 260) as unknown as number;
-  };
+const startHold = (dir: -1 | 1) => {
+  // clear old interval if user alternates buttons quickly
+  if (holdTid.current !== null) clearInterval(holdTid.current);
+
+  /* keep direction exactly as button intent (left → -1, right → +1) */
+  holdDir.current = dir as -1 | 1;   // cast fixes TS 2322
+
+  STEP();                                   // first step immediately
+  holdTid.current = window.setInterval(STEP, 260) as unknown as number;
+};
   const stopHold = () => {
     if (holdTid.current !== null) {
       clearInterval(holdTid.current);
@@ -724,10 +742,10 @@ const GameShelf: React.FC<GameShelfProps> = ({
     const padRight = itemW * cfg.padRight;
 
 
-    const cols   = Math.ceil(all.length / rows);   // every row gets same #cols
-
-    /* identical width for every row → easy centring */
-     const rowW   = cols * itemW + (cols - 1) * gapX + padLeft + padRight;
+    const cols   = Math.ceil(all.length / rows);         // same #cols each row
+    const rowW   = cols * itemW + (cols - 1) * gapX + padLeft + padRight;
+    const gridH  = rows * itemH + (rows - 1) * gapY + padTop + padBottom;
+    
 
     all.forEach((m, i) => {
       const r = Math.floor(i / cols);        // row 0…rows-1
@@ -745,7 +763,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
         const z = (m.userData.actualDepth as number) / 2 + 0.01;
         m.userData.shadow.position.set(x, y, z);
         m.userData.outline.position.set(x, y, z);
-        m.userData.outline.visible = selected.current === m;
+        m.userData.outline.visible = selectedRef.current === m; // <–– Fix remaining selected reference
       }
     });
 
@@ -769,6 +787,14 @@ const GameShelf: React.FC<GameShelfProps> = ({
       );
     }
 
+        // ----------------------------------------------------------------
+    // Ensure there's always an initial selection for arrow navigation
+    if (!selectedRef.current && meshes.current.length > 0) {
+      selectMesh(meshes.current[0], false);
+    }
+    // ----------------------------------------------------------------
+    // ++ sync CSS shell after layout
+    shellDiv.current!.style.transform = `translateX(${shelf.current.position.x}px)`;
     /* re-run when textures or row-count change */
   }, [textures, rows, frontWidthUnits, frontHeightUnits]);
 
@@ -781,7 +807,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
       style={{ width, height, position: 'relative', overflow: 'visible', userSelect: 'none', touchAction: 'none', zIndex: 0 }}
     >
      {/* backdrop shell – now lives *under* the WebGL canvas */}
-      <div style={shellStyle} />
+      <div ref={shellDiv} style={shellStyle} />
       {/* ← arrow */}
       <div
         onMouseDown={() => startHold(-1)}
