@@ -46,14 +46,19 @@ const GameShelf: React.FC<GameShelfProps> = ({
   const camera    = useRef<THREE.PerspectiveCamera>(null!);
   const shelf     = useRef<THREE.Group>(null!);
   const meshes    = useRef<THREE.Mesh[]>([]);
-  const urls      = useRef<string[]>([]);
-  const selected  = useRef<THREE.Mesh | null>(null);
-  /* cover size multipliers (tuned for full-grid fit)               *
-   *  – 1 row  : big “hero” covers
-   *  – 2 rows : half-height grid
-   *  – 4 rows : quarter-height grid (needs to be tiny)             */
-  /* tuned to fit inside the shell on a 1080-pixel-tall window */
-  const SCALE = {1:1.15, 2:0.48, 4:0.26} as const;
+  const selectedRef = useRef<THREE.Mesh | null>(null);
+  /* per-layout tuning so single-, double- and quad-row views can be
+   * customised independently. Each entry defines:
+   *  - scale : base size multiplier for covers
+   *  - gapX  : horizontal spacing multiplier (relative to cover width)
+   *  - gapY  : vertical spacing multiplier (relative to cover height)
+   *  - padTop/bottom : extra empty space above and below the grid
+   *  - padLeft/right : extra empty space on the left and right        */
+  const LAYOUT = {
+    1: { scale: 1.15, gapX: 0.25, gapY: 0.9,  padTop: 0.5, padBottom: 0.5, padLeft: 0.3, padRight: 0.3 },
+    2: { scale: 0.48, gapX: 0.22, gapY: 1.0, padTop: 0.3, padBottom: 0.3, padLeft: 0.25, padRight: 0.25 },
+    4: { scale: 0.26, gapX: 0.18, gapY: 1.15,padTop: 0.2, padBottom: 0.2, padLeft: 0.2, padRight: 0.2 },
+  } as const;
   /** shelf X-bounds after every layout pass */
   const bounds = useRef<{ min: number; max: number }>({ min: 0, max: 0 });
 
@@ -92,21 +97,21 @@ const GameShelf: React.FC<GameShelfProps> = ({
     playSelectSound = false,
   ) => {
     // clear old
-    if (selected.current) {
-      selected.current.scale.set(1, 1, 1);
-      selected.current.rotation.y = 0;
-      const prevOutline = selected.current.userData.outline as THREE.Object3D;
+     if (selectedRef.current) {
+      selectedRef.current.scale.set(1, 1, 1);
+      selectedRef.current.rotation.y = 0;
+      const prevOutline = selectedRef.current.userData.outline as THREE.Object3D;
       if (prevOutline) prevOutline.visible = false;
     }
 
-    selected.current = mesh;
+    selectedRef.current = mesh;
     if (!mesh) {
       onSelect?.(null);
       return;
     }
 
     // mark new
-    const scale = SCALE[rows];
+   const scale = LAYOUT[rows].scale;
     mesh.scale.set(scale, scale, scale);
     const outline = mesh.userData.outline as THREE.Object3D;
     if (outline) outline.visible = true;
@@ -260,7 +265,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
           nearest = m;
         }
       });
-      if (nearest && nearest !== selected.current) selectMesh(nearest, false);
+      if (nearest && nearest !== selectedRef.current) selectMesh(nearest, false);
     };
 
     const cancelLong = (): void => {
@@ -275,8 +280,8 @@ const GameShelf: React.FC<GameShelfProps> = ({
       moved = false;
       lastX = e.clientX;
       cancelLong();
-      if (mode === 'rotate' && selected.current && !selected.current.userData.isAdd) {
-        selected.current.rotation.y = 0;
+      if (mode === 'rotate' && selectedRef.current && !selectedRef.current.userData.isAdd) {
+        selectedRef.current.rotation.y = 0;
       }
 
       // Play background music once on first "user gesture"
@@ -319,7 +324,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
       }
 
       if (hit) {
-        if (selected.current !== hit) selectMesh(hit, true);
+        if (selectedRef.current !== hit) selectMesh(hit, true);
         mode = 'rotate';
 
         longTid = window.setTimeout(() => {
@@ -339,8 +344,8 @@ const GameShelf: React.FC<GameShelfProps> = ({
       if (Math.abs(dx) > 4) moved = true;
       if (moved) cancelLong();
 
-      if (mode === 'rotate' && selected.current && !selected.current.userData.isAdd) {
-        selected.current.rotation.y += dx * 0.012;
+      if (mode === 'rotate' && selectedRef.current && !selectedRef.current.userData.isAdd) {
+        selectedRef.current.rotation.y += dx * 0.012;
       } else if (mode === 'pan') {
         // move shelf
         shelf.current.position.x = clamp(
@@ -413,7 +418,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
       meshes.current.forEach(m => {
         const ph = m.userData.ph as number;
         m.position.y = (m.userData.homeY || 0) +
-                       Math.sin(t * 1.2 + ph) * (HOVER_BASE * SCALE[rows]);
+         Math.sin(t * 1.2 + ph) * (HOVER_BASE * LAYOUT[rows].scale);
       });
       renderer.current.render(scene.current, camera.current);
     };
@@ -477,7 +482,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
       const scale  = Math.min(scaleW, scaleH);
 
       /* active size-multiplier (1-row = 1.0) */
-      const mul  = SCALE[rows];
+      const mul  = LAYOUT[rows].scale;
       const boxW = FRONT_3DS * scale * WIDTH_FACTOR * mul;
       const boxH = boxW * PANEL_RATIO;                 // derived height
       const boxD = SPINE_3DS * scale * DEPTH_FACTOR * mul;
@@ -705,45 +710,33 @@ const GameShelf: React.FC<GameShelfProps> = ({
 
     /* ───────────── ROW LAYOUT (row-major, even gaps) ───────────── */
     const all    = meshes.current;
-    const mul    = SCALE[rows];
+    const mul    = LAYOUT[rows].scale;
     const itemW  = BOX_W * mul;              // uniform cover width
     const itemH  = BOX_H * mul;
 
-    /* row-specific spacing blocks so each layout can be tuned independently */
-    let gapX: number;        // breathing room between columns
-    let gapY: number;        // vertical spacing between rows
-    let padTop: number;      // extra space above the top row
-    let padBottom: number;   // extra space below the bottom row
-    if (rows === 1) {
-      gapX = itemW * 0.7;   // single-row x-gap
-      gapY = itemH * 0.9;    // single-row y-gap
-      padTop = itemH * 0.5;
-      padBottom = itemH * 0.5;
-    } else if (rows === 2) {
-      gapX = itemW * 3.0;   // double-row x-gap
-      gapY = itemH * 4.0;    // double-row y-gap
-      padTop = itemH * 0.5;
-      padBottom = itemH * 0.3;
-    } else {
-      gapX = itemW * 6.5;   // quadruple-row x-gap
-      gapY = itemH * 7.5;   // quadruple-row y-gap
-      padTop = itemH * 3.8;
-      padBottom = itemH * 0.2;
-    }
+    /* resolve spacing and padding from the layout table */
+    const cfg = LAYOUT[rows];
+    const gapX = itemW * cfg.gapX;    // breathing room between columns
+    const gapY = itemH * cfg.gapY;    // vertical spacing between rows
+    const padTop = itemH * cfg.padTop;
+    const padBottom = itemH * cfg.padBottom;
+    const padLeft = itemW * cfg.padLeft;
+    const padRight = itemW * cfg.padRight;
 
 
     const cols   = Math.ceil(all.length / rows);   // every row gets same #cols
 
     /* identical width for every row → easy centring */
-    const rowW   = cols * itemW + (cols - 1) * gapX;
+     const rowW   = cols * itemW + (cols - 1) * gapX + padLeft + padRight;
 
     all.forEach((m, i) => {
       const r = Math.floor(i / cols);        // row 0…rows-1
       const c = i % cols;                    // col 0…cols-1
 
-      const x = (c - (cols - 1) / 2) * (itemW + gapX);
-      const offset = (padTop - padBottom) / 2;
-      const y = ((rows - 1) / 2 - r) * gapY - offset;
+      const xOffset = (padLeft - padRight) / 2;
+      const x = (c - (cols - 1) / 2) * (itemW + gapX) + xOffset;
+      const yOffset = (padTop - padBottom) / 2;
+      const y = ((rows - 1) / 2 - r) * gapY - yOffset;
 
       m.position.set(x, y, 0);
       m.userData.homeY = y;
@@ -761,12 +754,12 @@ const GameShelf: React.FC<GameShelfProps> = ({
       (rows === 1 ? 3.6 : rows === 2 ? 6.8 : 12.0);
 
     /* pan limits: first & last columns can be centred */
-    bounds.current.min = -((cols - 1) / 2) * (itemW + gapX);
-    bounds.current.max =  ((cols - 1) / 2) * (itemW + gapX);
+    bounds.current.min = -((cols - 1) / 2) * (itemW + gapX) - padLeft;
+    bounds.current.max =  ((cols - 1) / 2) * (itemW + gapX) + padRight;
 
     /* keep selection centred after row-switch */
-    if (selected.current) {
-      const worldX = selected.current.position.x + shelf.current.position.x;
+    if (selectedRef.current) {
+      const worldX = selectedRef.current.position.x + shelf.current.position.x;
       shelf.current.position.x -= worldX;
     } else {
       shelf.current.position.x = clamp(
@@ -802,7 +795,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
           height: 140,
           /* rounder quarter-circle outer edge */
           borderTopRightRadius: 100,
-         borderBottomRightRadius: 100,
+          borderBottomRightRadius: 100,
           background: 'linear-gradient(180deg, #3b404d 0%, #1d1f26 100%)',
           boxShadow: '0 0.9em 1.4em rgba(0,0,0,.65), 0 .04em .04em -.01em rgba(5,5,5,1), 0 .008em .008em -.01em rgba(5,5,5,.5), .18em .36em .14em -.03em rgba(5,5,5,.25)',
           display: 'flex',
