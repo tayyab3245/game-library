@@ -49,6 +49,13 @@ const GameShelf: React.FC<GameShelfProps> = ({
   const selectedRef = useRef<THREE.Mesh | null>(null);
   const urls      = useRef<string[]>([]); 
   const shellDiv  = useRef<HTMLDivElement>(null);
+  /* pixels-per-world-unit at shelf depth (set after each layout pass) */
+  const pxPerWorld = useRef<number>(1);
+  /* ─ edge-elasticity: 0 = none, 1 = super stretchy ─ */
+  const OVERSCROLL_DAMP = 0.15;          // ↓ firmer follow
+
+  // dynamic reveal (world-units), set each layout pass
+  const revealWorld = useRef<number>(0);
   
   /* per-layout tuning so single-, double- and quad-row views can be
    * customised independently. Each entry defines:
@@ -58,9 +65,9 @@ const GameShelf: React.FC<GameShelfProps> = ({
    *  - padTop/bottom : extra empty space above and below the grid
    *  - padLeft/right : extra empty space on the left and right        */
   const LAYOUT = {
-    1: { scale: 1.15, gapX: 0.25, gapY: 0.9,  padTop: 0.5, padBottom: 0.5, padLeft: 0.3, padRight: 0.3 },
-    2: { scale: 0.48, gapX: 0.22, gapY: 1.0, padTop: 0.3, padBottom: 0.3, padLeft: 0.25, padRight: 0.25 },
-    4: { scale: 0.26, gapX: 0.18, gapY: 1.15,padTop: 0.2, padBottom: 0.2, padLeft: 0.2, padRight: 0.2 },
+    1: { scale: 0.75, gapX: 0.65, gapY: 0.9,  padTop: 0.5, padBottom: 0.5, padLeft: 0.15, padRight: 0.15 },
+    2: { scale: 0.40, gapX: 2.10, gapY: 3.10, padTop: 0.3, padBottom: 0.3, padLeft: 0.25, padRight: 0.25 },
+    4: { scale: 0.41, gapX: 2.55, gapY: 3.55, padTop: 0.2, padBottom: 0.2, padLeft: 0.2, padRight: 0.2 },
   } as const;
   /** shelf X-bounds after every layout pass */
   const bounds = useRef<{ min: number; max: number }>({ min: 0, max: 0 });
@@ -84,11 +91,14 @@ const GameShelf: React.FC<GameShelfProps> = ({
   /* background shell behind the shelf */
   const shellStyle: React.CSSProperties = {
     position: 'absolute',
-    inset: 0,
+    left: 0,     // pin left & size via JS below
+    top: 0,      // full-height
+    bottom: 0,   // full-height
     borderRadius: 40,
     /* a hair darker + softer shadow → less “3-D”, more backdrop */
     background: 'linear-gradient(180deg, #2e323c 0%, #1a1c22 100%)',
     boxShadow: '0 0.6em 1em rgba(0,0,0,.55)',
+    transition: 'transform 0.3s ease-out',   // smooth snap-back
     pointerEvents: 'none',
     zIndex: -1,               // push the shell *under* the canvas
   };
@@ -123,7 +133,8 @@ const GameShelf: React.FC<GameShelfProps> = ({
     const worldX = mesh.position.x + shelf.current.position.x;
     shelf.current.position.x -= worldX;
       // ++ sync CSS shell on select
-   shellDiv.current!.style.transform = `translateX(${shelf.current.position.x}px)`;
+   shellDiv.current!.style.transform =
+     `translateX(${shelf.current.position.x * pxPerWorld.current}px)`;
 
     // notify
     currentCenterIdx.current = meshes.current.indexOf(mesh);
@@ -352,18 +363,23 @@ const GameShelf: React.FC<GameShelfProps> = ({
       if (mode === 'rotate' && selectedRef.current && !selectedRef.current.userData.isAdd) {
         selectedRef.current.rotation.y += dx * 0.012;
       } else if (mode === 'pan') {
-        // move shelf
-        shelf.current.position.x = clamp(
-          shelf.current.position.x + dx * 0.015,
-          bounds.current.min,
-          bounds.current.max,
+        /* new elastic pan ------------------------------------------------ */
+        const newShelfX = shelf.current.position.x + dx * 0.015;
+        const clamped   = clamp(newShelfX, bounds.current.min, bounds.current.max);
+        shelf.current.position.x = clamped;
+
+        const overscroll = newShelfX - clamped;   // world-units
+        // cap it so the shell never drifts past our reveal-world limit
+        const capped = clamp(
+          overscroll,
+          -revealWorld.current,
+           revealWorld.current,
         );
-        
-        // ++ sync CSS shell on pan
-        shellDiv.current!.style.transform = `translateX(${shelf.current.position.x}px)`;
-          // sync existing CSS shell
+        const shellX = clamped + capped * OVERSCROLL_DAMP;
+
         if (shellDiv.current) {
-          shellDiv.current.style.transform = `translateX(${shelf.current.position.x}px)`;
+          shellDiv.current.style.transform =
+            `translateX(${shellX * pxPerWorld.current}px)`;
         }
 
         // check centre change (skip the “add” cube)
@@ -386,6 +402,13 @@ const GameShelf: React.FC<GameShelfProps> = ({
     const onPointerUp = (): void => {
       dragging = false;
       cancelLong();
+
+      if (mode === 'pan' && shellDiv.current) {
+        /* snap background back in-bounds */
+        shellDiv.current.style.transform =
+          `translateX(${shelf.current.position.x * pxPerWorld.current}px)`;
+      }
+
       if (mode === 'pan') {
         // find nearest mesh including the “add” cube
         let nearestIdx = -1, nearestDist = Infinity;
@@ -742,8 +765,8 @@ const startHold = (dir: -1 | 1) => {
     const padRight = itemW * cfg.padRight;
 
 
-    const cols   = Math.ceil(all.length / rows);         // same #cols each row
-    const rowW   = cols * itemW + (cols - 1) * gapX + padLeft + padRight;
+    const cols   = Math.ceil(all.length / rows);
+    const rowW   = cols * itemW + (cols - 1) * gapX + padLeft + padRight;  // world units
     const gridH  = rows * itemH + (rows - 1) * gapY + padTop + padBottom;
     
 
@@ -775,6 +798,32 @@ const startHold = (dir: -1 | 1) => {
     bounds.current.min = -((cols - 1) / 2) * (itemW + gapX) - padLeft;
     bounds.current.max =  ((cols - 1) / 2) * (itemW + gapX) + padRight;
 
+    // ─── compute px-per-world at shelf depth ───────────────────────
+    const canvasEl   = renderer.current.domElement;
+    pxPerWorld.current = canvasEl.clientHeight
+      / (2 * camera.current.position.z
+          * Math.tan((camera.current.fov * Math.PI / 180) / 2));
+
+    // ─── adaptive reveal: 60% of ONE cover’s width ───
+    const revealWorldVal = itemW * 0.6;       // in world-units
+    revealWorld.current  = revealWorldVal;
+    const shellRevealPx   = revealWorldVal * pxPerWorld.current;
+
+          // define rowPx & leftPx so TS won’t complain
+    const containerW = canvasEl.clientWidth;
+    const rowPx  = rowW * pxPerWorld.current;
+    const leftPx = (containerW - (rowPx + shellRevealPx * 2)) / 2
+                 + shelf.current.position.x * pxPerWorld.current;
+
+    // ─── size & position shell to exactly cover the row ───────
+    shellDiv.current!.style.width     = `${rowPx + shellRevealPx * 2}px`;
+    shellDiv.current!.style.left      = `${leftPx}px`;
+    shellDiv.current!.style.transform = '';  // clear previous translateX
+
+        // slide shell in sync with ThreeJS pan
+    shellDiv.current!.style.transform =
+      `translateX(${shelf.current.position.x * pxPerWorld.current}px)`;
+
     /* keep selection centred after row-switch */
     if (selectedRef.current) {
       const worldX = selectedRef.current.position.x + shelf.current.position.x;
@@ -794,7 +843,8 @@ const startHold = (dir: -1 | 1) => {
     }
     // ----------------------------------------------------------------
     // ++ sync CSS shell after layout
-    shellDiv.current!.style.transform = `translateX(${shelf.current.position.x}px)`;
+       shellDiv.current!.style.transform =
+      `translateX(${shelf.current.position.x * pxPerWorld.current}px)`;
     /* re-run when textures or row-count change */
   }, [textures, rows, frontWidthUnits, frontHeightUnits]);
 
