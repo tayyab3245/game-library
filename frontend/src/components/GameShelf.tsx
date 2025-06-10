@@ -708,25 +708,29 @@ const GameShelf: React.FC<GameShelfProps> = ({
     const mul    = SCALE[rows];
     const itemW  = BOX_W * mul;              // uniform cover width
     const itemH  = BOX_H * mul;
-    const gapX   = itemW * 4.25;             // extra breathing room (perspective & hover)
-    
+
     /* row-specific spacing blocks so each layout can be tuned independently */
-    let gapY: number;
+    let gapX: number;        // breathing room between columns
+    let gapY: number;        // vertical spacing between rows
     let padTop: number;      // extra space above the top row
     let padBottom: number;   // extra space below the bottom row
     if (rows === 1) {
-      gapY = itemH * 0.9;    // single-row gap
+      gapX = itemW * 0.7;   // single-row x-gap
+      gapY = itemH * 0.9;    // single-row y-gap
       padTop = itemH * 0.5;
       padBottom = itemH * 0.5;
     } else if (rows === 2) {
-      gapY = itemH * 4.0;    // double-row gap
-      padTop = itemH * 0.3;
+      gapX = itemW * 3.0;   // double-row x-gap
+      gapY = itemH * 4.0;    // double-row y-gap
+      padTop = itemH * 0.5;
       padBottom = itemH * 0.3;
     } else {
-      gapY = itemH * 5.15;   // quadruple-row gap
-      padTop = itemH * 0.2;
+      gapX = itemW * 6.5;   // quadruple-row x-gap
+      gapY = itemH * 7.5;   // quadruple-row y-gap
+      padTop = itemH * 3.8;
       padBottom = itemH * 0.2;
     }
+
 
     const cols   = Math.ceil(all.length / rows);   // every row gets same #cols
 
@@ -738,7 +742,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
       const c = i % cols;                    // col 0…cols-1
 
       const x = (c - (cols - 1) / 2) * (itemW + gapX);
-         const offset = (padTop - padBottom) / 2;
+      const offset = (padTop - padBottom) / 2;
       const y = ((rows - 1) / 2 - r) * gapY - offset;
 
       m.position.set(x, y, 0);
