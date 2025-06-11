@@ -172,28 +172,83 @@ export default function GameManager() {
   /* ───────── inject 3DS-style capsule CSS once ───────── */
 useLayoutEffect(()=>{
   const s=document.createElement('style');s.innerHTML=`
-  .view-toggle{position:absolute;left:20px;top:12px;height:48px;display:flex;
-    /* square-ish, beveled capsule */
-    border-radius:14px;overflow:hidden;background:
-     linear-gradient(-35deg,rgba(255,255,255,.07) 0%,transparent 60%),
-     linear-gradient(180deg,#3b404d 0%,#1d1f26 100%);
-    background-blend-mode:soft-light;box-shadow:
-      0 .04em .04em -.01em rgba(5,5,5,1),
-      0 .008em .008em -.01em rgba(5,5,5,.5),
-      .18em .36em .14em -.03em rgba(5,5,5,.25);
-    }
-  .view-toggle .seg{width:48px;height:48px;display:flex;align-items:center;justify-content:center;
-    border:none;background:transparent;color:#fff;
-    font:700 22px/1 "Inter",sans-serif;cursor:pointer;user-select:none;
-    transition:filter .12s,transform .12s;position:relative;}
-  .view-toggle .seg::before{content:"";position:absolute;inset:0;
-    background:rgba(255,255,255,.08);opacity:.06;transition:opacity .12s;}
-  .view-toggle .seg:hover::before{opacity:.35;}
-  .view-toggle .seg:active{transform:translateY(.07em);}
-  .view-toggle .seg:first-child::after{content:"";position:absolute;right:0;top:6px;bottom:6px;width:2px;
-    background:linear-gradient(180deg,rgba(255,255,255,.17) 0 25%,rgba(0,0,0,.60) 25% 75%,rgba(255,255,255,.17) 75% 100%);
-    box-shadow:0 0 6px rgba(255,255,255,.40);}
-  .view-toggle .active::before{opacity:.45;background:rgba(0,0,0,.25);}
+.view-toggle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 48px;
+  display: flex;
+  border-radius: 0 0 24px 0;
+  overflow: hidden;
+  background:
+    linear-gradient(-35deg, rgba(255,255,255,0.07) 0%, transparent 60%),
+    linear-gradient(180deg, #3b404d 0%, #1a1c22 100%);
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,0.08),
+    inset 0 -1px 2px rgba(0,0,0,0.4),
+    0 4px 8px rgba(0,0,0,0.3);
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.view-toggle .seg {
+  flex: 1 1 0;
+  min-width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  position: relative;
+  font: 700 22px/1 "Inter", sans-serif;
+  z-index: 1;
+  border-radius: 0;
+}
+
+.view-toggle .seg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,.08);
+  opacity: 0.06;
+  transition: opacity 0.12s;
+  border-radius: 12px;
+}
+
+.view-toggle .seg:hover::before {
+  opacity: 0.35;
+}
+
+.view-toggle .seg.active {
+  background: linear-gradient(
+    to bottom,
+    #f0f0f0 0%,
+    #e8e8e8 10%,
+    #dcdcdc 50%,
+    #c2c2c2 90%,
+    #b2b2b2 100%
+  );
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.6),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.15),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+  color: #111;
+  z-index: 2;
+  flex-grow: 2;
+  height: 100%;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 0 24px 24px;
+  transition: all 0.25s ease;
+}
+
   `;
   document.head.appendChild(s);return()=>{document.head.removeChild(s);}
 },[]);

@@ -4,6 +4,9 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry';
 import SoundManager from '../utils/SoundManager';
 
+
+
+
 export interface GameShelfProps {
   textures?: string[];
   width?: number | string;
@@ -26,17 +29,86 @@ const FRONT_3DS   = 1608;   // front cover width in px (3DS)
 
 const HEIGHT_RATIO_3DS = 0.73;
 
+  
 const GameShelf: React.FC<GameShelfProps> = ({
   textures = [],
   width = '100%',
   height = '100%',
-  /* bigger covers by default */
   frontWidthUnits = 12,
   frontHeightUnits = 12,
   onSelect,
-  onLongPress, 
-  rows = 1,                   // default: single row
+  onLongPress,
+  rows = 1,
 }) => {
+
+  useLayoutEffect(() => {
+    const style = document.createElement("style");
+    style.innerHTML = `
+      .shelf-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 72px;
+        height: 72px;
+        background:
+          linear-gradient(-35deg, rgba(255,255,255,0.07) 0%, transparent 60%),
+          linear-gradient(180deg, #3b404d 0%, #1a1c22 100%);
+        box-shadow:
+          inset 0 2px 3px rgba(255,255,255,0.08),
+          inset 0 -1px 2px rgba(0,0,0,0.4),
+          0 6px 12px rgba(0,0,0,0.3),
+          0 0 4px rgba(140, 210, 255, 0.15);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
+        z-index: 10;
+        overflow: hidden;
+        backdrop-filter: blur(1.5px);
+      }
+
+        .shelf-arrow::before {
+        content: '';
+        display: block;
+        width: 0;
+        height: 0;
+        border-style: solid;
+        border-width: 12px 18px 12px 0;
+        border-color: transparent white transparent transparent;
+        filter:
+          drop-shadow(0 0 1px rgba(255, 255, 255, 0.4))
+          drop-shadow(0 0 4px rgba(255, 255, 255, 0.2));
+        transform: translateX(2px);
+      }
+      .shelf-arrow.right::before {
+        transform: translateX(-2px) rotate(180deg);
+       }
+      .shelf-arrow.left {
+        left: 24px;
+      }
+      .shelf-arrow.right {
+        right: 24px;
+      }
+      .shelf-arrow:hover {
+        transform: translateY(-50%) scale(1.05);
+        background:
+          linear-gradient(-35deg, rgba(255,255,255,0.12) 0%, transparent 60%),
+          linear-gradient(180deg, #444a59 0%, #1f2027 100%);
+        box-shadow:
+          inset 0 2px 3px rgba(255,255,255,0.1),
+          inset 0 -1px 2px rgba(0,0,0,0.5),
+          0 6px 14px rgba(0,0,0,0.4),
+          0 0 6px rgba(170, 230, 255, 0.3);
+        filter: brightness(1.1);
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      style.remove(); // 🧽 this fixes the TS2345 warning
+    };
+  }, []);
 
 
   const container = useRef<HTMLDivElement>(null);
@@ -857,87 +929,19 @@ const startHold = (dir: -1 | 1) => {
     >
      {/* backdrop shell – now lives *under* the WebGL canvas */}
       <div ref={shellDiv} style={shellStyle} />
-      {/* ← arrow */}
       <div
+        className="shelf-arrow left"
         onMouseDown={() => startHold(-1)}
         onMouseUp={stopHold}
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          width: 140,
-          height: 140,
-          /* rounder quarter-circle outer edge */
-          borderTopRightRadius: 100,
-          borderBottomRightRadius: 100,
-          background: 'linear-gradient(180deg, #3b404d 0%, #1d1f26 100%)',
-          boxShadow: '0 0.9em 1.4em rgba(0,0,0,.65), 0 .04em .04em -.01em rgba(5,5,5,1), 0 .008em .008em -.01em rgba(5,5,5,.5), .18em .36em .14em -.03em rgba(5,5,5,.25)',
-          display: 'flex',
-          color: '#ffffff',
-          fontSize: 64,
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          transition: 'transform .15s, filter .12s',
-          /* thin bottom rim highlight to match command-bar */
-          boxSizing: 'border-box',
-          borderBottom: '2px solid rgba(255,255,255,.12)',
-        }}
-        onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
-          const tgt = e.currentTarget;
-          tgt.style.transform = 'translateY(-50%) scale(1.05)';
-          tgt.style.filter    = 'brightness(1.25)';
-        }}
-        onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
-          stopHold();
-          const tgt = e.currentTarget;
-          tgt.style.transform = 'translateY(-50%)';
-          tgt.style.filter    = '';
-        }}
-      >
-        &#9664;
-      </div>
-
-      {/* → arrow */}
+        onMouseLeave={stopHold}
+      />
       <div
+        className="shelf-arrow right"
         onMouseDown={() => startHold(1)}
         onMouseUp={stopHold}
-        style={{
-          position: 'absolute',
-          right: 0,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          width: 140,
-          height: 140,
-          borderTopLeftRadius: 100,
-          borderBottomLeftRadius: 100,
-          background: 'linear-gradient(180deg, #3b404d 0%, #1d1f26 100%)',
-          boxShadow: '0 .8em 1.4em rgba(0,0,0,.6), 0 .04em .04em -.01em rgba(5,5,5,1), 0 .008em .008em -.01em rgba(5,5,5,.5), .18em .36em .14em -.03em rgba(5,5,5,.25)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          transition: 'transform .15s, filter .12s',
-          color: '#ffffff',
-          fontSize: 64,                  /* big white triangle */
-          boxSizing: 'border-box',
-          borderBottom: '2px solid rgba(255,255,255,.12)',
-        }}
-        onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
-          const tgt = e.currentTarget;
-          tgt.style.transform = 'translateY(-50%) scale(1.05)';
-          tgt.style.filter    = 'brightness(1.25)';
-        }}
-        onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
-          stopHold();
-          const tgt = e.currentTarget;
-          tgt.style.transform = 'translateY(-50%)';
-          tgt.style.filter    = '';
-        }}
-      >
-        &#9654;
-      </div>
+        onMouseLeave={stopHold}
+      />
+
     </div>
   );
 };
