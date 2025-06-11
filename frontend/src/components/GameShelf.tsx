@@ -1,5 +1,4 @@
 // src/components/GameShelf.tsx
-
 import React, { useEffect, useRef, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry';

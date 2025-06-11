@@ -8,6 +8,8 @@ import { neonBtn } from "./utils/styles";
 import useGames, { Game } from "./hooks/useGames";
 import SoundManager from "./utils/SoundManager";
 import CommandBar from "./components/CommandBar";
+import GridIcon from './components/GridIcon';
+
 
 export default function GameManager() {
   const ADD_MARKER = "__ADD__";           // sentinel for “Add Game” cube
@@ -245,27 +247,23 @@ useLayoutEffect(()=>{
         <span style={styles.dateTime}>{now.toLocaleString()}</span>
         {/* ───── View-toggle capsule ───── */}
         <div className="view-toggle" data-ui>
-          <button
-            className={`seg ${rowMode===1?'active':''}`}
-            title="Single row"
-            onPointerUp={()=>{ setRowMode(1); SoundManager.playUISelect(); }}
-          >
-            ▢
-          </button>
-          <button
-            className={`seg ${rowMode===2?'active':''}`}
-            title="Double row"
-            onPointerUp={()=>{ setRowMode(2); SoundManager.playUISelect(); }}
-          >
-            ⊟
-          </button>
+          {[1, 2, 4].map((r) => (
             <button
-            className={`seg ${rowMode===4?'active':''}`}
-            title="Quad row"
-            onPointerUp={()=>{ setRowMode(4); SoundManager.playUISelect(); }}
-          >
-            ⊞
-          </button>
+              key={r}
+              className={`seg ${rowMode === r ? 'active' : ''}`}
+              title={`${r === 1 ? 'Single' : r === 2 ? 'Double' : 'Quad'} row`}
+              onPointerUp={() => {
+                setRowMode(r as 1 | 2 | 4);
+                SoundManager.playUISelect();
+              }}
+            >
+              <GridIcon
+                mode={r as 1 | 2 | 4}
+                filled={rowMode === r}
+                size={24}
+              />
+            </button>
+          ))}
         </div>
       </div>
         <div style={{ ...styles.middle, height: SHELF_H }}>
