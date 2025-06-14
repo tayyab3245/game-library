@@ -2,9 +2,24 @@
 import React, { useEffect, useRef, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry';
-import SoundManager from '../utils/SoundManager';
-
-
+import SoundManager from '../../utils/SoundManager';
+import {
+  ADD_MARKER,
+  FULL_W_3DS,
+  FULL_H_3DS,
+  BACK_3DS,
+  SPINE_3DS,
+  FRONT_3DS,
+  HEIGHT_RATIO_3DS,
+  WIDTH_FACTOR,
+  DEPTH_FACTOR,
+  PANEL_RATIO,
+  LAYOUT,
+  OVERSCROLL_DAMP,
+} from './constants';
+import { shellStyle, getArrowCSS } from './styles';
+import { clamp, same } from './helpers';
+import { buildMats3DS } from './materials';
 
 
 export interface GameShelfProps {
@@ -17,18 +32,6 @@ export interface GameShelfProps {
   onLongPress?: (idx: number) => void;       
   rows?: 1 | 2 | 4;            // 1 / 2 / 4 rows
 }
-
-
-const ADD_MARKER  = "__ADD__";
-const FULL_W_3DS  = 3236;   // total pixel width of your 3DS scan
-const FULL_H_3DS  = 1360;   // total pixel height of your 3DS scan
-const BACK_3DS    = 1508;   // back cover width in px (3DS)
-const SPINE_3DS   = 120;    // spine width in px (3DS)
-const FRONT_3DS   = 1608;   // front cover width in px (3DS)
-
-
-const HEIGHT_RATIO_3DS = 0.73;
-
   
 const GameShelf: React.FC<GameShelfProps> = ({
   textures = [],
@@ -43,67 +46,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
 
   useLayoutEffect(() => {
     const style = document.createElement("style");
-    style.innerHTML = `
-      .shelf-arrow {
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 72px;
-        height: 72px;
-        background:
-          linear-gradient(-35deg, rgba(255,255,255,0.07) 0%, transparent 60%),
-          linear-gradient(180deg, #3b404d 0%, #1a1c22 100%);
-        box-shadow:
-          inset 0 2px 3px rgba(255,255,255,0.08),
-          inset 0 -1px 2px rgba(0,0,0,0.4),
-          0 6px 12px rgba(0,0,0,0.3),
-          0 0 4px rgba(140, 210, 255, 0.15);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
-        z-index: 10;
-        overflow: hidden;
-        backdrop-filter: blur(1.5px);
-      }
-
-        .shelf-arrow::before {
-        content: '';
-        display: block;
-        width: 0;
-        height: 0;
-        border-style: solid;
-        border-width: 12px 18px 12px 0;
-        border-color: transparent white transparent transparent;
-        filter:
-          drop-shadow(0 0 1px rgba(255, 255, 255, 0.4))
-          drop-shadow(0 0 4px rgba(255, 255, 255, 0.2));
-        transform: translateX(2px);
-      }
-      .shelf-arrow.right::before {
-        transform: translateX(-2px) rotate(180deg);
-       }
-      .shelf-arrow.left {
-        left: 24px;
-      }
-      .shelf-arrow.right {
-        right: 24px;
-      }
-      .shelf-arrow:hover {
-        transform: translateY(-50%) scale(1.05);
-        background:
-          linear-gradient(-35deg, rgba(255,255,255,0.12) 0%, transparent 60%),
-          linear-gradient(180deg, #444a59 0%, #1f2027 100%);
-        box-shadow:
-          inset 0 2px 3px rgba(255,255,255,0.1),
-          inset 0 -1px 2px rgba(0,0,0,0.5),
-          0 6px 14px rgba(0,0,0,0.4),
-          0 0 6px rgba(170, 230, 255, 0.3);
-        filter: brightness(1.1);
-      }
-    `;
+    style.innerHTML = getArrowCSS();
     document.head.appendChild(style);
     return () => {
       style.remove(); // 🧽 this fixes the TS2345 warning
@@ -123,7 +66,6 @@ const GameShelf: React.FC<GameShelfProps> = ({
   /* pixels-per-world-unit at shelf depth (set after each layout pass) */
   const pxPerWorld = useRef<number>(1);
   /* ─ edge-elasticity: 0 = none, 1 = super stretchy ─ */
-  const OVERSCROLL_DAMP = 0.15;          // ↓ firmer follow
 
   // dynamic reveal (world-units), set each layout pass
   const revealWorld = useRef<number>(0);
@@ -135,11 +77,6 @@ const GameShelf: React.FC<GameShelfProps> = ({
    *  - gapY  : vertical spacing multiplier (relative to cover height)
    *  - padTop/bottom : extra empty space above and below the grid
    *  - padLeft/right : extra empty space on the left and right        */
-  const LAYOUT = {
-    1: { scale: 0.75, gapX: 0.65, gapY: 0.9,  padTop: 0.5, padBottom: 0.5, padLeft: 0.15, padRight: 0.15 },
-    2: { scale: 0.40, gapX: 2.10, gapY: 3.10, padTop: 0.3, padBottom: 0.3, padLeft: 0.25, padRight: 0.25 },
-    4: { scale: 0.41, gapX: 2.55, gapY: 3.55, padTop: 0.2, padBottom: 0.2, padLeft: 0.2, padRight: 0.2 },
-  } as const;
   /** shelf X-bounds after every layout pass */
   const bounds = useRef<{ min: number; max: number }>({ min: 0, max: 0 });
 
@@ -160,19 +97,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
   // track which mesh is currently centred so we know when to “click”-advance
   const currentCenterIdx = useRef<number | null>(null);
   /* background shell behind the shelf */
-  const shellStyle: React.CSSProperties = {
-    position: 'absolute',
-    left: 0,     // pin left & size via JS below
-    top: 0,      // full-height
-    bottom: 0,   // full-height
-    borderRadius: 40,
-    /* a hair darker + softer shadow → less “3-D”, more backdrop */
-    background: 'linear-gradient(180deg, #2e323c 0%, #1a1c22 100%)',
-    boxShadow: '0 0.6em 1em rgba(0,0,0,.55)',
-    transition: 'transform 0.3s ease-out',   // smooth snap-back
-    pointerEvents: 'none',
-    zIndex: -1,               // push the shell *under* the canvas
-  };
+
   /** ----------------------------------------------------------
    *  Helpers
    * --------------------------------------------------------- */
@@ -181,8 +106,10 @@ const GameShelf: React.FC<GameShelfProps> = ({
     playSelectSound = false,
   ) => {
     // clear old
-     if (selectedRef.current) {
-      selectedRef.current.scale.set(1, 1, 1);
+    if (selectedRef.current) {
+      // Reset to idle scale (not 1,1,1)
+      const idleScale = LAYOUT[rows].scale;
+      selectedRef.current.scale.set(idleScale, idleScale, idleScale);
       selectedRef.current.rotation.y = 0;
       const prevOutline = selectedRef.current.userData.outline as THREE.Object3D;
       if (prevOutline) prevOutline.visible = false;
@@ -195,8 +122,9 @@ const GameShelf: React.FC<GameShelfProps> = ({
     }
 
     // mark new
-   const scale = LAYOUT[rows].scale;
-    mesh.scale.set(scale, scale, scale);
+  // Use the base scale (you can tweak this multiplier if you want a bigger “pop”)
+  const selectedScale = LAYOUT[rows].scale;
+    mesh.scale.set(selectedScale, selectedScale, selectedScale);
     const outline = mesh.userData.outline as THREE.Object3D;
     if (outline) outline.visible = true;
 
@@ -212,73 +140,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
     onSelect?.(currentCenterIdx.current);
     if (playSelectSound) SoundManager.playObjectSelect();
   };
-
-
-  const buildMats3DS = (tex: THREE.Texture): THREE.Material[] => {
-    // enable mipmaps for smooth minification of small details (like text)
-    // mark texture as sRGB so GPU applies proper gamma correction
-    (tex as any).colorSpace   = THREE.SRGBColorSpace;
-    tex.generateMipmaps       = true;              // keep mipmaps for tiny text
-    tex.minFilter             = THREE.LinearMipmapLinearFilter;
-    tex.magFilter             = THREE.LinearFilter;
-    // force maximum anisotropy – the higher the better for oblique viewing
-    tex.anisotropy            = renderer.current.capabilities.getMaxAnisotropy();
-    tex.needsUpdate     = true;
-
-   
-    const BACK_PX   = BACK_3DS;   // 1508 px
-    const SPINE_PX  = SPINE_3DS;  //  120 px
-    const FRONT_PX  = FRONT_3DS;  // 1608 px
-    const FULL_W    = FULL_W_3DS; // 3236 px
-
-    const WIDTH_FACTOR = 0.50; 
-    const DEPTH_FACTOR = WIDTH_FACTOR; 
-
-
-    const NUDGE_SPINE_PX  = 53;
-    const NUDGE_BACK_PX   = 0;
-    const NUDGE_FRONT_PX  = 55;
-
-    const SCALED_SPINE_PX = SPINE_PX * (DEPTH_FACTOR / WIDTH_FACTOR);
-    const SPINE_LEFT_SHIFT = (SPINE_PX - SCALED_SPINE_PX) / 2 + NUDGE_SPINE_PX;
-
-    const U_SPINE_WIDTH  = SCALED_SPINE_PX / FULL_W;
-    const U_SPINE_OFFSET = (BACK_PX + SPINE_LEFT_SHIFT) / FULL_W;
-
-    const U_BACK_OFFSET  = NUDGE_BACK_PX / FULL_W;
-    const U_BACK_WIDTH   = BACK_PX / FULL_W;
-
-    const U_FRONT_OFFSET = (BACK_PX + SPINE_PX + NUDGE_FRONT_PX) / FULL_W;
-    const U_FRONT_WIDTH  = FRONT_PX / FULL_W;
-
-  
-    const slice = (u: number, ur: number, flip = false) => {
-      const t2 = tex.clone();
-      t2.offset.set(u, 0);
-      t2.repeat.set(flip ? -ur : ur, 1);
-      if (flip) t2.offset.x += ur; 
-      return t2;
-    };
-
-    const makeMat = (map?: THREE.Texture) =>
-      map
-        ? new THREE.MeshBasicMaterial({ map })
-        : new THREE.MeshBasicMaterial({ color: 0xffffff });
-
-    return [
-      makeMat(),                                          // right (empty)
-      makeMat(slice(U_SPINE_OFFSET, U_SPINE_WIDTH)),      // spine
-      makeMat(),                                          // top (empty)
-      makeMat(),                                          // bottom (empty)
-      makeMat(slice(U_FRONT_OFFSET, U_FRONT_WIDTH)),      // front
-      makeMat(slice(U_BACK_OFFSET, U_BACK_WIDTH)),        // back
-    ];
-  };
-
-
-  const WIDTH_FACTOR  = 0.50;               
-  const DEPTH_FACTOR  = WIDTH_FACTOR;       
-  const PANEL_RATIO   = 4.875 / 5.875;      
+     
 
   const _BASE_W = FRONT_3DS * (frontWidthUnits / FRONT_3DS);
   const _BASE_D = SPINE_3DS * (frontWidthUnits / FRONT_3DS);
@@ -402,7 +264,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
         }
       }
 
-      if (hit && hit.userData.isAdd) {
+if (hit && hit.userData.isAdd) {
         // delegate to parent → opens modal using the actual mesh index
         onSelect?.(-1);
         SoundManager.playUISelect();
@@ -411,16 +273,18 @@ const GameShelf: React.FC<GameShelfProps> = ({
       }
 
       if (hit) {
-        if (selectedRef.current !== hit) selectMesh(hit, true);
+        selectMesh(hit, true);
         mode = 'rotate';
 
         longTid = window.setTimeout(() => {
           longTid = null;
           if (!moved && hit) onLongPress?.(meshes.current.indexOf(hit));
         }, 700);
-      } else {
+      } else if (rows !== 1 || !selectedRef.current) {
         clearSelect();
         mode = 'pan';
+      } else {
+        mode = selectedRef.current ? 'rotate' : 'pan';
       }
     };
 
@@ -506,9 +370,35 @@ const GameShelf: React.FC<GameShelfProps> = ({
      // ignore pointer events that originate from UI layers
     const uiFilter = (e: PointerEvent) =>
       !(e.target as HTMLElement)?.closest('[data-ui="true"]');
-    const safeDown  = (e: PointerEvent) => uiFilter(e) && onPointerDown(e);
-    const safeMove  = (e: PointerEvent) => uiFilter(e) && onPointerMove(e);
-    const safeUp    = (e: PointerEvent) => uiFilter(e) && onPointerUp();
+    const safeDown = (e: PointerEvent) => {
+      if (uiFilter(e)) {
+        dragging = true;
+        moved = false;
+        lastX = e.clientX;
+        onPointerDown(e);
+      }
+    };
+    
+    const safeMove = (e: PointerEvent) => {
+      if (uiFilter(e) && dragging) {
+        const dx = e.clientX - lastX;
+        lastX = e.clientX;
+        
+        if (mode === 'rotate' && selectedRef.current) {
+          selectedRef.current.rotation.y += dx * 0.012;
+          moved = true;
+        } else {
+          onPointerMove(e);
+        }
+      }
+    };
+    
+    const safeUp = (e: PointerEvent) => {
+      if (uiFilter(e)) {
+        dragging = false;
+        onPointerUp();
+      }
+    };
 
     window.addEventListener('pointerdown', safeDown);
     window.addEventListener('pointermove', safeMove);
@@ -552,9 +442,12 @@ const holdDir = useRef<-1 | 1>(1);            // current left / right
     const next = clamp(
       currentCenterIdx.current + holdDir.current,
       0,
-      Math.max(0, meshes.current.length - 2),   // skip trailing “add” cube
+      Math.max(0, meshes.current.length - 2),   // skip trailing "add" cube
     );
-    if (next !== currentCenterIdx.current) selectMesh(meshes.current[next], true);
+    if (next !== currentCenterIdx.current) {
+      selectMesh(meshes.current[next], true);
+      currentCenterIdx.current = next;
+    }
   };
 const startHold = (dir: -1 | 1) => {
   // clear old interval if user alternates buttons quickly
@@ -795,7 +688,7 @@ const startHold = (dir: -1 | 1) => {
         loader.load(
           url,
           (tex) => {
-            mesh.material = buildMats3DS(tex);
+            mesh.material = buildMats3DS(tex, renderer.current);
             mesh.userData.url = url;
           },
           undefined,
@@ -842,6 +735,10 @@ const startHold = (dir: -1 | 1) => {
     
 
     all.forEach((m, i) => {
+      // Reset scale to idle for all meshes
+      const idleScale = LAYOUT[rows].scale;
+      m.scale.set(idleScale, idleScale, idleScale);
+
       const r = Math.floor(i / cols);        // row 0…rows-1
       const c = i % cols;                    // col 0…cols-1
 
@@ -857,7 +754,7 @@ const startHold = (dir: -1 | 1) => {
         const z = (m.userData.actualDepth as number) / 2 + 0.01;
         m.userData.shadow.position.set(x, y, z);
         m.userData.outline.position.set(x, y, z);
-        m.userData.outline.visible = selectedRef.current === m; // <–– Fix remaining selected reference
+        m.userData.outline.visible = selectedRef.current === m;
       }
     });
 

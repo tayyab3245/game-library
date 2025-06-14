@@ -1,7 +1,8 @@
 // src/GameManager.tsx
 
 import React, { useState, useEffect, useLayoutEffect } from "react";
-import GameShelf from "./components/GameShelf";
+import GameShelf from "./components/GameShelf/GameShelf";
+import { ADD_MARKER } from "./components/GameShelf/constants";
 import AddGameModal, { GameForm } from "./components/AddGameModal";
 import { styles } from "./styles/GameManager.styles";
 import { neonBtn } from "./utils/styles";
@@ -12,7 +13,6 @@ import GridIcon from './components/GridIcon';
 
 
 export default function GameManager() {
-  const ADD_MARKER = "__ADD__";           // sentinel for “Add Game” cube
   const { games, loadGames, API } = useGames();
 
   const [selIdx, setSelIdx]   = useState<number | null>(null);
