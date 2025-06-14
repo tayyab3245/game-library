@@ -19,6 +19,7 @@ import {
 } from './constants';
 import { shellStyle, getArrowCSS } from './styles';
 import { clamp, same } from './helpers';
+import useShelfControls from './useShelfControls';
 import { buildMats3DS } from './materials';
 
 
@@ -61,7 +62,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
   const shelf     = useRef<THREE.Group>(null!);
   const meshes    = useRef<THREE.Mesh[]>([]);
   const selectedRef = useRef<THREE.Mesh | null>(null);
-  const urls      = useRef<string[]>([]); 
+   const urls      = useRef<string[]>([]);
   const shellDiv  = useRef<HTMLDivElement>(null);
   /* pixels-per-world-unit at shelf depth (set after each layout pass) */
   const pxPerWorld = useRef<number>(1);
@@ -152,6 +153,25 @@ const GameShelf: React.FC<GameShelfProps> = ({
   /* base hover – row-scale is applied in the render-loop */
   const HOVER_BASE = BOX_H * 0.03;
 
+     const { startHold, stopHold, attach } = useShelfControls({
+    container,
+    camera,
+    scene,
+    shelf,
+    meshes,
+    selectedRef,
+    shellDiv,
+    pxPerWorld,
+    revealWorld,
+    bounds,
+    currentCenterIdx,
+    rows,
+    selectMesh,
+    onSelect,
+    onLongPress,
+    hasPlayedBackground,
+  });
+
   /* 4. INIT: scene + camera + pointer + hover  (run only once, on mount)*/
   useEffect(() => {
     if (!container.current) return;
@@ -190,219 +210,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
     resize();
     window.addEventListener('resize', resize);
 
-    /* Pointer interaction + Raycaster */
-    const ray     = new THREE.Raycaster();
-    const pointer = new THREE.Vector2();
-    let dragging = false;
-    let mode: 'rotate' | 'pan' | null = null;
-    let lastX = 0;
-    let longTid: number | null = null;
-    let moved = false;
-
-    const clearSelect = () => selectMesh(null);
-
-
-    // Helper to auto-select centered mesh during pan
-    const autoSelectCentered = (): void => {
-      let nearest: THREE.Mesh | null = null;
-      let min = Infinity;
-      meshes.current.forEach(m => {
-        if (m.userData.isAdd) return;            // skip “add” cube
-        const d = Math.abs(m.position.x + shelf.current.position.x);
-        if (d < min) {
-          min = d;
-          nearest = m;
-        }
-      });
-      if (nearest && nearest !== selectedRef.current) selectMesh(nearest, false);
-    };
-
-    const cancelLong = (): void => {
-      if (longTid !== null) {
-        clearTimeout(longTid);
-        longTid = null;
-      }
-    };
-
-    const onPointerDown = (e: PointerEvent): void => {
-      dragging = true;
-      moved = false;
-      lastX = e.clientX;
-      cancelLong();
-      if (mode === 'rotate' && selectedRef.current && !selectedRef.current.userData.isAdd) {
-        selectedRef.current.rotation.y = 0;
-      }
-
-      // Play background music once on first "user gesture"
-      if (!hasPlayedBackground.current) {
-        SoundManager.playBackground();
-        hasPlayedBackground.current = true;
-      }
-
-      // If the pointer-down did NOT happen inside the canvas we immediately
-      // switch to full-page panning — no ray-cast needed.
-      if (!(e.target as HTMLElement).closest('canvas')) {
-        mode = 'pan';
-        return;
-      }
-
-      const rect = canvas.getBoundingClientRect();
-      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      ray.setFromCamera(pointer, camera.current);
-
-      // find the *root* mesh that belongs to the main `meshes` array
-      const rawHit = ray.intersectObjects(scene.current.children, true)[0]?.object;
-      let hit: THREE.Mesh | null = null;
-      if (rawHit) {
-        let cur: THREE.Object3D | null = rawHit;
-        while (cur && !meshes.current.includes(cur as THREE.Mesh)) {
-          cur = cur.parent;
-        }
-        if (cur && meshes.current.includes(cur as THREE.Mesh)) {
-          hit = cur as THREE.Mesh;
-        }
-      }
-
-if (hit && hit.userData.isAdd) {
-        // delegate to parent → opens modal using the actual mesh index
-        onSelect?.(-1);
-        SoundManager.playUISelect();
-        mode = null;
-        return;
-      }
-
-      if (hit) {
-        selectMesh(hit, true);
-        mode = 'rotate';
-
-        longTid = window.setTimeout(() => {
-          longTid = null;
-          if (!moved && hit) onLongPress?.(meshes.current.indexOf(hit));
-        }, 700);
-      } else if (rows !== 1 || !selectedRef.current) {
-        clearSelect();
-        mode = 'pan';
-      } else {
-        mode = selectedRef.current ? 'rotate' : 'pan';
-      }
-    };
-
-    const onPointerMove = (e: PointerEvent): void => {
-      if (!dragging) return;
-      const dx = e.clientX - lastX;
-      lastX = e.clientX;
-      if (Math.abs(dx) > 4) moved = true;
-      if (moved) cancelLong();
-
-      if (mode === 'rotate' && selectedRef.current && !selectedRef.current.userData.isAdd) {
-        selectedRef.current.rotation.y += dx * 0.012;
-      } else if (mode === 'pan') {
-        /* new elastic pan ------------------------------------------------ */
-        const newShelfX = shelf.current.position.x + dx * 0.015;
-        const clamped   = clamp(newShelfX, bounds.current.min, bounds.current.max);
-        shelf.current.position.x = clamped;
-
-        const overscroll = newShelfX - clamped;   // world-units
-        // cap it so the shell never drifts past our reveal-world limit
-        const capped = clamp(
-          overscroll,
-          -revealWorld.current,
-           revealWorld.current,
-        );
-        const shellX = clamped + capped * OVERSCROLL_DAMP;
-
-        if (shellDiv.current) {
-          shellDiv.current.style.transform =
-            `translateX(${shellX * pxPerWorld.current}px)`;
-        }
-
-        // check centre change (skip the “add” cube)
-        let nearest = -1, nearestDist = Infinity;
-        meshes.current.forEach((m, idx) => {
-          if (m.userData.isAdd) return;
-          const d = Math.abs(m.position.x + shelf.current.position.x);
-          if (d < nearestDist) {
-            nearestDist = d;
-            nearest = idx;
-          }
-        });
-        if (nearest !== -1 && nearest !== currentCenterIdx.current) {
-          SoundManager.playPan();
-          selectMesh(meshes.current[nearest], false);
-        }
-      }
-    };
-
-    const onPointerUp = (): void => {
-      dragging = false;
-      cancelLong();
-
-      if (mode === 'pan' && shellDiv.current) {
-        /* snap background back in-bounds */
-        shellDiv.current.style.transform =
-          `translateX(${shelf.current.position.x * pxPerWorld.current}px)`;
-      }
-
-      if (mode === 'pan') {
-        // find nearest mesh including the “add” cube
-        let nearestIdx = -1, nearestDist = Infinity;
-        meshes.current.forEach((m, idx) => {
-          const d = Math.abs(m.position.x + shelf.current.position.x);
-          if (d < nearestDist) {
-            nearestDist = d;
-            nearestIdx = idx;
-          }
-        });
-        /* if the “add” cube ends up centred by panning we *do not* open the
-           modal – user must click/tap it explicitly                                    */
-        if (!meshes.current[nearestIdx]?.userData.isAdd) {
-          autoSelectCentered();
-        }
-      }
-    };
-
-    // Remove scroll bar from page
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.userSelect = 'none';             // prevent text-highlight while panning
-
-     // ignore pointer events that originate from UI layers
-    const uiFilter = (e: PointerEvent) =>
-      !(e.target as HTMLElement)?.closest('[data-ui="true"]');
-    const safeDown = (e: PointerEvent) => {
-      if (uiFilter(e)) {
-        dragging = true;
-        moved = false;
-        lastX = e.clientX;
-        onPointerDown(e);
-      }
-    };
-    
-    const safeMove = (e: PointerEvent) => {
-      if (uiFilter(e) && dragging) {
-        const dx = e.clientX - lastX;
-        lastX = e.clientX;
-        
-        if (mode === 'rotate' && selectedRef.current) {
-          selectedRef.current.rotation.y += dx * 0.012;
-          moved = true;
-        } else {
-          onPointerMove(e);
-        }
-      }
-    };
-    
-    const safeUp = (e: PointerEvent) => {
-      if (uiFilter(e)) {
-        dragging = false;
-        onPointerUp();
-      }
-    };
-
-    window.addEventListener('pointerdown', safeDown);
-    window.addEventListener('pointermove', safeMove);
-    window.addEventListener('pointerup',   safeUp);
+    const cleanupControls = attach();
 
     /* Hover animation loop */
     let stopAnimation = false;
@@ -426,45 +234,13 @@ if (hit && hit.userData.isAdd) {
       document.body.style.userSelect = '';
       stopAnimation = true;
       window.removeEventListener('resize', resize);
-      window.removeEventListener('pointerdown', safeDown);
-      window.removeEventListener('pointermove', safeMove);
-      window.removeEventListener('pointerup',   safeUp);
+      cleanupControls();
       renderer.current.dispose();
     };
   }, []); // ← run only once on mount
 
 
-  /* ---------- arrow buttons (click / hold) -------------------------------- */
-const holdTid = useRef<number | null>(null);   // interval id
-const holdDir = useRef<-1 | 1>(1);            // current left / right
-  const STEP = () => {
-    if (currentCenterIdx.current === null) return;
-    const next = clamp(
-      currentCenterIdx.current + holdDir.current,
-      0,
-      Math.max(0, meshes.current.length - 2),   // skip trailing "add" cube
-    );
-    if (next !== currentCenterIdx.current) {
-      selectMesh(meshes.current[next], true);
-      currentCenterIdx.current = next;
-    }
-  };
-const startHold = (dir: -1 | 1) => {
-  // clear old interval if user alternates buttons quickly
-  if (holdTid.current !== null) clearInterval(holdTid.current);
 
-  /* keep direction exactly as button intent (left → -1, right → +1) */
-  holdDir.current = dir as -1 | 1;   // cast fixes TS 2322
-
-  STEP();                                   // first step immediately
-  holdTid.current = window.setInterval(STEP, 260) as unknown as number;
-};
-  const stopHold = () => {
-    if (holdTid.current !== null) {
-      clearInterval(holdTid.current);
-      holdTid.current = null;
-    }
-  };
 
   /* 5. TEXTURE LOADING + MESH UPDATE (runs whenever textures **or rows** change) */
   useEffect(() => {
@@ -648,40 +424,6 @@ const startHold = (dir: -1 | 1) => {
 
             bracketGroup.add(makeBracket(-sw / 2, -sh / 2));
             bracketGroup.add(makeBracket(sw / 2, -sh / 2));
-            bracketGroup.add(makeBracket(sw / 2, sh / 2));
-            bracketGroup.add(makeBracket(-sw / 2, sh / 2));
-            bracketGroup.visible = false;
-            mesh.userData.outline = bracketGroup;
-            shelf.current.add(bracketGroup);
-          }
-        }
-
-
-      /* 5c. Load texture if URL changed */
-      if (url === ADD_MARKER) {
-        mesh.userData.isAdd = true;                       // “add” cube
-        /* make the cube invisible – we only keep it for hit-testing & spacing */
-        const invisible = new THREE.MeshBasicMaterial({ transparent:true, opacity:0 });
-        mesh.material = Array(6).fill(invisible);
-
-        /* 3-D yellow “+” --------------------------------------------------------- */
-        if (!mesh.userData.plusBuilt) {
-          const barT = boxW * 0.10;                       // thickness
-          const barL = boxW * 0.46;                       // length
-          const barD = boxD * 0.35;
-          const r    = barT * 0.9;                        // bevel
-          const barGeoH = new RoundedBoxGeometry(barL, barT, barD, 6, r);
-          const barGeoV = new RoundedBoxGeometry(barT, barL, barD, 6, r);
-          const barMat  = new THREE.MeshBasicMaterial({ color: 0xffbe32 });
-          const barH = new THREE.Mesh(barGeoH, barMat);
-          const barV = new THREE.Mesh(barGeoV, barMat);
-          const plusGrp = new THREE.Group();
-          plusGrp.userData.isPlus = true;
-          plusGrp.add(barH);
-          plusGrp.add(barV);
-          barH.position.z = barV.position.z = boxD * 0.55; // lift slightly in front
-          mesh.add(plusGrp);
-          mesh.userData.plusBuilt = true;
         }
         mesh.userData.url = url;
       } else if (mesh.userData.url !== url) {
@@ -816,7 +558,6 @@ const startHold = (dir: -1 | 1) => {
     /* re-run when textures or row-count change */
   }, [textures, rows, frontWidthUnits, frontHeightUnits]);
 
-
   /* 6. Render container div */
   return (
     <div
@@ -838,7 +579,6 @@ const startHold = (dir: -1 | 1) => {
         onMouseUp={stopHold}
         onMouseLeave={stopHold}
       />
-
     </div>
   );
 };
