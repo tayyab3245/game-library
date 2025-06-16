@@ -18,6 +18,7 @@ export const styles: StyleMap = {
     bottom: 0,
     width: '100vw',
     height: '100vh',
+    fontFamily: '"Press Start 2P", sans-serif',
   },
   header: {
     position: 'relative',
@@ -33,8 +34,9 @@ export const styles: StyleMap = {
       '0 .01em .01em -.01em rgba(5,5,5,.5),' +
       '.18em .36em .14em -.03em rgba(5,5,5,.25)',
     color: '#fff',
+    fontFamily: '"Press Start 2P", sans-serif',
   },
-    dateTime: {
+  dateTime: {
     position: 'absolute',
     top: 12,
     right: 24,
@@ -43,6 +45,7 @@ export const styles: StyleMap = {
   },
   titleWrap: {
     textAlign: 'center',
+    fontFamily: '"Press Start 2P", sans-serif',
   },
   middle: {
     /* fill remaining space – centres GameShelf perfectly */
@@ -99,16 +102,17 @@ export const styles: StyleMap = {
     fontSize: 16,
     fontWeight: 500,
     letterSpacing: '0.5px',
-    boxShadow: 
+    boxShadow:
       'inset 0 2px 4px rgba(0,0,0,0.2),' +
       '0 1px 1px rgba(255,255,255,0.1)',
   },
   /* new – top-centre game title */
-    gameTitle: {
+  gameTitle: {
     color: '#fff',
     fontSize: 28,
     fontWeight: 600,
     textAlign: 'center',
     margin: '8px 0 0 0',
+    fontFamily: '"Press Start 2P", sans-serif',
   },
 };

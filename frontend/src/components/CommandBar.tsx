@@ -102,28 +102,23 @@ const CommandBar: React.FC<CommandBarProps> = ({
 /* ───── SEGMENTS (Launch | Edit) ──────────────────────────── */
 .command-bar .seg{
   position:relative; border:none; background:transparent;
-  font:700 ${tokens.fontSize}px/1 "Inter",sans-serif;
+  font:700 ${tokens.fontSize}px/1 "Press Start 2P", sans-serif;
   color:rgba(255,255,255,0.95); text-transform:uppercase; letter-spacing:.5px;
   text-shadow: 
-    /* Engraved effect */
     0 -1px 1px ${tokens.text3d.dark},
     0 1px 1px ${tokens.text3d.light},
-    /* Existing glow */
     ${tokens.txtGlow};
   display:flex; align-items:center; justify-content:center;
   cursor:pointer; user-select:none;
   transition:filter .12s, transform .12s;
-  border-radius: 0;  /* Remove border radius for middle edges */
+  border-radius: 0;
   background:
     ${tokens.gloss},
     linear-gradient(180deg,${tokens.top} 0%,${tokens.bot} 100%);
   background-blend-mode: soft-light;
   box-shadow: 
-    /* Top highlight */
     inset 0 1px 0 ${tokens.segment.highlight},
-    /* Inner shadow for depth */
     inset 0 4px 5px -2px ${tokens.insetShadow},
-    /* Existing shadow */
     0 1px 2px ${tokens.segment.shadow};
 }
 

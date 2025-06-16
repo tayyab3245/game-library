@@ -492,7 +492,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
       const xOffset = (padLeft - padRight) / 2;
       const x = (c - (cols - 1) / 2) * (itemW + gapX) + xOffset;
       const yOffset = (padTop - padBottom) / 2;
-      const y = ((rows - 1) / 2 - r) * gapY - yOffset;
+      const y = ((rows - 1) / 2 - r) * (itemH + gapY) - yOffset;
 
       m.position.set(x, y, 0);
       m.userData.homeY = y;
