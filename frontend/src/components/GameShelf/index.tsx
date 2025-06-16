@@ -413,20 +413,44 @@ const GameShelf: React.FC<GameShelfProps> = ({
             bracketGroup.add(makeBracket(sw / 2, -sh / 2));
         }
         mesh.userData.url = url;
-      } else if (mesh.userData.url !== url) {
-        loader.load(
-          url,
-          (tex) => {
-            mesh.material = buildMats3DS(tex, renderer.current);
-            mesh.userData.url = url;
-          },
-          undefined,
-          () => {
-            mesh.material = new THREE.MeshBasicMaterial({ color: 0x555555 });
-            mesh.userData.url = url;
+              } else if (url === ADD_MARKER) {
+          mesh.userData.isAdd = true; // “add” cube
+          const invisible = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 });
+          mesh.material = Array(6).fill(invisible);
+
+          if (!mesh.userData.plusBuilt) {
+            const barT = boxW * 0.10; // thickness
+            const barL = boxW * 0.46; // length
+            const barD = boxD * 0.35;
+            const r    = barT * 0.9;  // bevel
+            const barGeoH = new RoundedBoxGeometry(barL, barT, barD, 6, r);
+            const barGeoV = new RoundedBoxGeometry(barT, barL, barD, 6, r);
+            const barMat  = new THREE.MeshBasicMaterial({ color: 0xffbe32 });
+            const barH = new THREE.Mesh(barGeoH, barMat);
+            const barV = new THREE.Mesh(barGeoV, barMat);
+            const plusGrp = new THREE.Group();
+            plusGrp.userData.isPlus = true;
+            plusGrp.add(barH);
+            plusGrp.add(barV);
+            barH.position.z = barV.position.z = boxD * 0.55;
+            mesh.add(plusGrp);
+            mesh.userData.plusBuilt = true;
           }
-        );
-      }
+          mesh.userData.url = url;
+        } else if (mesh.userData.url !== url) {
+          loader.load(
+            url,
+            (tex) => {
+              mesh.material = buildMats3DS(tex, renderer.current);
+              mesh.userData.url = url;
+            },
+            undefined,
+            () => {
+              mesh.material = new THREE.MeshBasicMaterial({ color: 0x555555 });
+              mesh.userData.url = url;
+            }
+          );
+        }
 
       /* 5d. Store dims for layout (note: “add” cube is only 10 % thick) */
       mesh.userData.actualWidth  = boxW;
