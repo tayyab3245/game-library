@@ -1,4 +1,4 @@
-// src/components/GameShelf.tsx
+// src/components/index.tsx
 import React, { useEffect, useRef, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry';
@@ -53,8 +53,6 @@ const GameShelf: React.FC<GameShelfProps> = ({
       style.remove(); // 🧽 this fixes the TS2345 warning
     };
   }, []);
-
-
   const container = useRef<HTMLDivElement>(null);
   const renderer  = useRef<THREE.WebGLRenderer>(null!);
   const scene     = useRef<THREE.Scene>(null!);
@@ -67,10 +65,8 @@ const GameShelf: React.FC<GameShelfProps> = ({
   /* pixels-per-world-unit at shelf depth (set after each layout pass) */
   const pxPerWorld = useRef<number>(1);
   /* ─ edge-elasticity: 0 = none, 1 = super stretchy ─ */
-
   // dynamic reveal (world-units), set each layout pass
   const revealWorld = useRef<number>(0);
-  
   /* per-layout tuning so single-, double- and quad-row views can be
    * customised independently. Each entry defines:
    *  - scale : base size multiplier for covers
@@ -80,21 +76,14 @@ const GameShelf: React.FC<GameShelfProps> = ({
    *  - padLeft/right : extra empty space on the left and right        */
   /** shelf X-bounds after every layout pass */
   const bounds = useRef<{ min: number; max: number }>({ min: 0, max: 0 });
-
     /* first-gesture flag for background music  */
   const hasPlayedBackground = useRef(false);
-
   const clamp = (v: number, lo: number, hi: number) =>
     v < lo ? lo : v > hi ? hi : v;
-
-
   const same = (a: string[], b: string[]) =>
     a.length === b.length && a.every((v, i) => v === b[i]);
-
-
   /* remember the last rows value */
   const prevRows = useRef<1 | 2 | 4>(rows);
-
   // track which mesh is currently centred so we know when to “click”-advance
   const currentCenterIdx = useRef<number | null>(null);
   /* background shell behind the shelf */
@@ -115,14 +104,12 @@ const GameShelf: React.FC<GameShelfProps> = ({
       const prevOutline = selectedRef.current.userData.outline as THREE.Object3D;
       if (prevOutline) prevOutline.visible = false;
     }
-
     selectedRef.current = mesh;
     if (!mesh) {
       onSelect?.(null);
       return;
     }
-
-    // mark new
+  // mark new
   // Use the base scale (you can tweak this multiplier if you want a bigger “pop”)
   const selectedScale = LAYOUT[rows].scale;
     mesh.scale.set(selectedScale, selectedScale, selectedScale);
@@ -446,7 +433,6 @@ const GameShelf: React.FC<GameShelfProps> = ({
       mesh.userData.actualHeight = boxH;
       mesh.userData.actualDepth  = isAdd ? boxD * 0.1 : boxD;
     });
-
     // Remove any extra meshes
     while (meshes.current.length > textures.length) {
       const m = meshes.current.pop()!;
@@ -454,13 +440,11 @@ const GameShelf: React.FC<GameShelfProps> = ({
       (m.material as any).dispose?.();
       m.geometry.dispose();
     }
-
     /* ───────────── ROW LAYOUT (row-major, even gaps) ───────────── */
     const all    = meshes.current;
     const mul    = LAYOUT[rows].scale;
     const itemW  = BOX_W * mul;              // uniform cover width
     const itemH  = BOX_H * mul;
-
     /* resolve spacing and padding from the layout table */
     const cfg = LAYOUT[rows];
     const gapX = itemW * cfg.gapX;    // breathing room between columns
@@ -470,12 +454,9 @@ const GameShelf: React.FC<GameShelfProps> = ({
     const padLeft = itemW * cfg.padLeft;
     const padRight = itemW * cfg.padRight;
 
-
     const cols   = Math.ceil(all.length / rows);
     const rowW   = cols * itemW + (cols - 1) * gapX + padLeft + padRight;  // world units
     const gridH  = rows * itemH + (rows - 1) * gapY + padTop + padBottom;
-    
-
     all.forEach((m, i) => {
       // Reset scale to idle for all meshes
       const idleScale = LAYOUT[rows].scale;
@@ -499,7 +480,6 @@ const GameShelf: React.FC<GameShelfProps> = ({
         m.userData.outline.visible = selectedRef.current === m;
       }
     });
-
     /* ------------ update camera Z so every grid fits on screen ----------- */
     camera.current.position.z = BOX_H *
       (rows === 1 ? 3.6 : rows === 2 ? 6.8 : 12.0);
@@ -522,18 +502,16 @@ const GameShelf: React.FC<GameShelfProps> = ({
           // define rowPx & leftPx so TS won’t complain
     const containerW = canvasEl.clientWidth;
     const rowPx  = rowW * pxPerWorld.current;
-    const leftPx = (containerW - (rowPx + shellRevealPx * 2)) / 2
-                 + shelf.current.position.x * pxPerWorld.current;
+    const leftPx = (containerW - (rowPx + shellRevealPx * 2)) / 2;
+  
 
     // ─── size & position shell to exactly cover the row ───────
     shellDiv.current!.style.width     = `${rowPx + shellRevealPx * 2}px`;
     shellDiv.current!.style.left      = `${leftPx}px`;
     shellDiv.current!.style.transform = '';  // clear previous translateX
-
         // slide shell in sync with ThreeJS pan
     shellDiv.current!.style.transform =
       `translateX(${shelf.current.position.x * pxPerWorld.current}px)`;
-
     /* keep selection centred after row-switch */
     if (selectedRef.current) {
       const worldX = selectedRef.current.position.x + shelf.current.position.x;
@@ -545,7 +523,6 @@ const GameShelf: React.FC<GameShelfProps> = ({
         bounds.current.max,
       );
     }
-
         // ----------------------------------------------------------------
     // Ensure there's always an initial selection for arrow navigation
     if (!selectedRef.current && meshes.current.length > 0) {

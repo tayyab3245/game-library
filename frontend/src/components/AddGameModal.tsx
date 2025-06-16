@@ -60,8 +60,14 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
     const s = document.createElement("style");
     s.innerHTML = `
       @keyframes modalIn {
-        0% { opacity: 0; transform: translate(-50%, -40px); }
-        100% { opacity: 1; transform: translate(-50%, 0); }
+        0% { 
+          opacity: 0; 
+          transform: translate(-50%, -60%); 
+        }
+        100% { 
+          opacity: 1; 
+          transform: translate(-50%, -50%); 
+        }
       }
     `;
     document.head.appendChild(s);
@@ -80,7 +86,12 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
     alignItems: "center",
     zIndex: 3000,
   };
+
   const panel: React.CSSProperties = {
+    position: "fixed",
+    left: "50%",
+    top: "50%",
+    transform: "translate(-50%, -50%)",
     background: "rgba(24,28,33,.9)",
     padding: 32,
     borderRadius: 20,

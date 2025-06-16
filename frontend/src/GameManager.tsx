@@ -1,7 +1,7 @@
 // src/GameManager.tsx
 
 import React, { useState, useEffect, useLayoutEffect } from "react";
-import GameShelf from "./components/GameShelf/GameShelf";
+import GameShelf from "./components/GameShelf";
 import { ADD_MARKER } from "./components/GameShelf/constants";
 import AddGameModal, { GameForm } from "./components/AddGameModal";
 import { styles } from "./styles/GameManager.styles";
