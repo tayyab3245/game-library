@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "node",
     "jsx": "react-jsx",          // React 18 JSX runtime
     "strict": true,              // keep the guardrails
     "skipLibCheck": true,        // don’t parse all d.ts in node_modules

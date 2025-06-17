@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useLayoutEffect } from "react";
 import GameShelf from "./components/GameShelf";
+import ThemeToggleControl from "./components/ThemeToggleControl";
 import { ADD_MARKER } from "./components/GameShelf/constants";
 import AddGameModal, { GameForm } from "./components/AddGameModal";
 import { styles } from "./styles/GameManager.styles";
@@ -10,6 +11,7 @@ import useGames, { Game } from "./hooks/useGames";
 import SoundManager from "./utils/SoundManager";
 import CommandBar from "./components/CommandBar";
 import GridIcon from './components/GridIcon';
+
 
 
 export default function GameManager() {
@@ -177,6 +179,8 @@ useLayoutEffect(()=>{
   left: 0;
   top: 0;
   height: 48px;
+  transform: scale(1.5);
+  transform-origin: top left;
   display: flex;
   border-radius: 0 0 24px 0;
   overflow: hidden;
@@ -204,9 +208,10 @@ useLayoutEffect(()=>{
   user-select: none;
   transition: all 0.2s ease;
   position: relative;
-  font: 700 22px/1 "Inter", sans-serif;
+  font: 700 28px/1 "Inter", sans-serif; /* Increase font size */
   z-index: 1;
   border-radius: 0;
+  padding: 12px; /* Add padding for larger buttons */
 }
 
 .view-toggle .seg::before {
@@ -241,7 +246,7 @@ useLayoutEffect(()=>{
   z-index: 2;
   flex-grow: 2;
   height: 100%;
-  padding: 0 14px;
+  padding: 0 18px; /* Adjust padding for active buttons */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -288,8 +293,11 @@ useLayoutEffect(()=>{
     );
   };
 
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const toggleTheme = () => setTheme(theme === "light" ? "dark" : "light");
+
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, position: "relative" }}>
       <div style={styles.header}>
         <div style={styles.titleWrap}>
           <h2 style={styles.gameTitle}>{selGame?.title ?? 'Select a game'}</h2>
@@ -367,6 +375,7 @@ useLayoutEffect(()=>{
           openEditForSelected();
         }}
       />
+      <ThemeToggleControl onThemeChange={setTheme}/>
     </div>
   );
 }

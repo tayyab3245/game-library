@@ -11,14 +11,14 @@ export const styles: StyleMap = {
     overflowY: 'hidden',
     overflowX: 'hidden',
     background: '#222222',
-    position: 'fixed', // Add this to ensure full coverage
+    position: 'fixed',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
     width: '100vw',
     height: '100vh',
-    fontFamily: '"Press Start 2P", sans-serif',
+    fontFamily: '"Nunito", sans-serif',
   },
   header: {
     position: 'relative',
@@ -34,7 +34,7 @@ export const styles: StyleMap = {
       '0 .01em .01em -.01em rgba(5,5,5,.5),' +
       '.18em .36em .14em -.03em rgba(5,5,5,.25)',
     color: '#fff',
-    fontFamily: '"Press Start 2P", sans-serif',
+    fontFamily: '"Nunito", sans-serif',
   },
   dateTime: {
     position: 'absolute',
@@ -113,6 +113,6 @@ export const styles: StyleMap = {
     fontWeight: 600,
     textAlign: 'center',
     margin: '8px 0 0 0',
-    fontFamily: '"Press Start 2P", sans-serif',
+    fontFamily: '"Nunito", sans-serif',
   },
 };

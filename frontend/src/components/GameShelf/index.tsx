@@ -280,7 +280,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
           if (!isAdd) {
             // 2) Create a simple “wall" behind this box
           // create a rounded-rectangle shape for beveled shadow
-          const sw = boxW * 1.6, sh = boxH * 1.6;
+          const sw = boxW * 1.6 * 0.75, sh = boxH * 1.6 * 0.75; // shrink background shadow by 25%
           const radius = Math.min(sw, sh) * 0.1; // container bevel amount
           const shape = new THREE.Shape();
           shape.moveTo(-sw/2 + radius, -sh/2);
@@ -295,7 +295,13 @@ const GameShelf: React.FC<GameShelfProps> = ({
           const shadowGeo = new THREE.ShapeGeometry(shape);
           const shadow = new THREE.Mesh(
             shadowGeo,
-            new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0.05, transparent: true, side: THREE.DoubleSide })
+            new THREE.MeshBasicMaterial({
+              color: 0xffffff,
+              opacity: 0.04, // slightly lower opacity for a subtler effect
+              transparent: true,
+              side: THREE.DoubleSide,
+              depthWrite: false, // disable depth write for a softer shadow appearance
+            })
           );
           shadow.rotation.y = Math.PI;
           mesh.userData.shadow = shadow;

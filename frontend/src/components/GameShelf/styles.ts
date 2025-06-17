@@ -2,10 +2,11 @@ export const shellStyle: React.CSSProperties = {
   position: 'absolute',
   left: 0,
   top: 0,
-  bottom: 0,
+  bottom: '16px', // move bottom edge upward
   borderRadius: 40,
   background: 'linear-gradient(180deg, #2e323c 0%, #1a1c22 100%)',
   boxShadow: '0 0.6em 1em rgba(0,0,0,.55)',
+  borderBottom: '6px solid #1a1c22', // add a bottom border
   transition: 'transform 0.3s ease-out',
   pointerEvents: 'none',
   zIndex: -1,
