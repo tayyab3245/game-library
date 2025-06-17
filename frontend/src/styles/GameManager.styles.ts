@@ -10,7 +10,8 @@ export const styles: StyleMap = {
     padding: 0,
     overflowY: 'hidden',
     overflowX: 'hidden',
-    background: '#222222',
+    /* theme-aware */
+    background: 'var(--bg)',
     position: 'fixed',
     top: 0,
     left: 0,
@@ -33,7 +34,7 @@ export const styles: StyleMap = {
       '0 .05em .05em -.01em rgba(5,5,5,1),' +
       '0 .01em .01em -.01em rgba(5,5,5,.5),' +
       '.18em .36em .14em -.03em rgba(5,5,5,.25)',
-    color: '#fff',
+    color: 'var(--text)',
     fontFamily: '"Nunito", sans-serif',
   },
   dateTime: {
@@ -41,7 +42,7 @@ export const styles: StyleMap = {
     top: 12,
     right: 24,
     fontSize: 14,
-    color: '#fff',
+    color: 'var(--text)',
   },
   titleWrap: {
     textAlign: 'center',
@@ -57,7 +58,7 @@ export const styles: StyleMap = {
   },
   hours: {
     fontSize: 16,
-    color: '#ccc',
+    color: 'var(--text)',
     marginTop: 4,
   },
   form: {
@@ -93,7 +94,7 @@ export const styles: StyleMap = {
   },
   input: {
     background: '#1e1e24',
-    color: '#fff',
+     color: 'var(--text)',
     padding: '12px 16px',
     borderRadius: 16,
     minWidth: 180,
@@ -108,7 +109,7 @@ export const styles: StyleMap = {
   },
   /* new – top-centre game title */
   gameTitle: {
-    color: '#fff',
+    color: 'var(--text)',
     fontSize: 28,
     fontWeight: 600,
     textAlign: 'center',

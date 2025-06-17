@@ -26,7 +26,7 @@ const Overlay: React.FC<OverlayProps> = (p) => {
     bottom: 28,
     left: "50%",
     transform: "translateX(-50%)",
-    background: "#181b20",
+    background: "var(--panel)",
     borderRadius: 28,
     padding: "14px 28px",
     boxShadow: "0 10px 30px rgba(0,0,0,.6)",
@@ -41,8 +41,8 @@ const Overlay: React.FC<OverlayProps> = (p) => {
   };
 
   const editInput: React.CSSProperties = {
-    background: "#1e1e24",
-    color: "#fff",
+    background: "color-mix(in srgb,var(--panel) 85%, black)",
+    color: "var(--text)",
     border: "none",
     borderRadius: 12,
     padding: "10px 14px",
@@ -52,7 +52,7 @@ const Overlay: React.FC<OverlayProps> = (p) => {
     boxShadow: "inset 0 0 0 1px #333",
   };
 
-  const titleCss: React.CSSProperties = { fontSize: 18, fontWeight: 500, color: "#fff" };
+  const titleCss: React.CSSProperties = { fontSize: 18, fontWeight: 500, color: "var(--text)" };
   const xBtn: React.CSSProperties = {
     background: "#ff3737",
     border: "none",
@@ -60,7 +60,7 @@ const Overlay: React.FC<OverlayProps> = (p) => {
     width: 34,
     height: 34,
     cursor: "pointer",
-    color: "#fff",
+    color: "var(--text)",
     fontSize: 18,
     display: "flex",
     alignItems: "center",
@@ -223,7 +223,7 @@ export const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({
     transform: "translateX(-50%)",
     padding: "14px 28px",
     borderRadius: 28,
-    background: "#181b20",
+    background: "var(--panel)",
     boxShadow: "0 10px 30px rgba(0,0,0,.6)",
     color: "#fff",
     display: "flex",

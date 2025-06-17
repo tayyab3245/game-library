@@ -1,0 +1,19 @@
+/*───────────────────────────────────────────────
++ * 🎮  Nintendo-style palettes
++ *───────────────────────────────────────────────*/
+:root {
+  /*  ─── LIGHT (matches Switch “Basic White”) ─── */
+  --bg:     #fafafa;   /* almost-white, softer on eyes          */
+  --panel:  #ffffff;   /* cards / bars sit slightly above bg    */
+  --text:   #141414;   /* 90 % black – closer to Joy-Con UI     */
+  --accent: #e60012;   /* Nintendo red                          */
+}
+
+[data-theme="dark"] {
+  /*  ─── DARK (matches Switch “Basic Black”) ─── */
+  --bg:     #0f0f0f;   /* deep slate – keeps OLED look          */
+  --panel:  #1a1a1a;   /* raised surfaces                       */
+  --text:   #f4f4f4;   /* high-contrast copy                    */
+  --accent: #e60012;   /* keep brand red for consistency        */
+}
+ 

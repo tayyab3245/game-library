@@ -1,6 +1,7 @@
 // src/GameManager.tsx
 
 import React, { useState, useEffect, useLayoutEffect } from "react";
+import "./theme.css";                 /* ← import the CSS variables */
 import GameShelf from "./components/GameShelf";
 import ThemeToggleControl from "./components/ThemeToggleControl";
 import { ADD_MARKER } from "./components/GameShelf/constants";
@@ -297,7 +298,10 @@ useLayoutEffect(()=>{
   const toggleTheme = () => setTheme(theme === "light" ? "dark" : "light");
 
   return (
-    <div style={{ ...styles.container, position: "relative" }}>
+    <div
+      data-theme={theme}                       /* <- switch vars via data-theme */
+      style={{ ...styles.container, position: "relative" }}
+    >
       <div style={styles.header}>
         <div style={styles.titleWrap}>
           <h2 style={styles.gameTitle}>{selGame?.title ?? 'Select a game'}</h2>

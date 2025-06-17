@@ -5,13 +5,14 @@ export const neonBtn = (disabled: boolean): React.CSSProperties => ({
   fontSize: 16,
   textTransform: 'uppercase',
   letterSpacing: '.3px',
-  color: '#fff',
+  color: 'var(--text)',
   border: 'none',
   borderRadius: 14,
   cursor: disabled ? 'default' : 'pointer',
+  /* pick up the --panel token so it flips with the theme */
   background:
     'linear-gradient(-35deg,rgba(255,255,255,.07) 0%,transparent 60%),' +
-    'linear-gradient(180deg,#3b404d 0%,#1d1f26 100%)',
+    'linear-gradient(180deg,var(--panel) 0%,color-mix(in srgb,var(--panel) 30%,black) 100%)',
   backgroundBlendMode: 'soft-light',
   boxShadow: disabled
     ? 'none'
@@ -23,3 +24,14 @@ export const neonBtn = (disabled: boolean): React.CSSProperties => ({
   userSelect: 'none',
   WebkitTapHighlightColor: 'transparent',
 });
+
+export const globalStyles = {
+  background: 'var(--bg)',          /* light/dark via CSS variable */
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  color: 'var(--text)',
+  /* …rest unchanged … */
+}
