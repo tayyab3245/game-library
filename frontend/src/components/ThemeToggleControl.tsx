@@ -1,4 +1,5 @@
 import React, { useState, useId } from "react";
+import { useTheme } from "../theme/ThemeContext";
 
 export interface ThemeToggleControlProps {
   /** Notified after each click */
@@ -12,6 +13,7 @@ export interface ThemeToggleControlProps {
 const ThemeToggleControl: React.FC<ThemeToggleControlProps> = ({
   onThemeChange,
 }) => {
+  const themeTokens = useTheme();
   /* ───────── state ───────── */
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
@@ -56,7 +58,7 @@ const ThemeToggleControl: React.FC<ThemeToggleControlProps> = ({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "#fff",
+          color: themeTokens.text,
         }}
       >
         <svg

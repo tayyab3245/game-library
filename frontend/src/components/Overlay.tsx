@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { neonBtn } from "../utils/styles";
 import SoundManager from "../utils/SoundManager";
+import { useTheme } from "../theme/ThemeContext";
 
 
 export type OverlayProps = {
@@ -21,15 +22,16 @@ export type OverlayProps = {
 };
 
 const Overlay: React.FC<OverlayProps> = (p) => {
+  const theme = useTheme();
   const overlayStyle: React.CSSProperties = {
     position: "fixed",
     bottom: 28,
     left: "50%",
     transform: "translateX(-50%)",
-    background: "var(--panel)",
+    background: theme.surface,
     borderRadius: 28,
     padding: "14px 28px",
-    boxShadow: "0 10px 30px rgba(0,0,0,.6)",
+    boxShadow: theme.shadow,
     zIndex: 999,
     animation: p.flash ? "flashOk .6s ease" : "bubbleFade .25s ease forwards",
   };
@@ -41,8 +43,8 @@ const Overlay: React.FC<OverlayProps> = (p) => {
   };
 
   const editInput: React.CSSProperties = {
-    background: "color-mix(in srgb,var(--panel) 85%, black)",
-    color: "var(--text)",
+    background: `color-mix(in srgb,${theme.surface} 85%, black)`,
+    color: theme.text,
     border: "none",
     borderRadius: 12,
     padding: "10px 14px",
@@ -52,7 +54,7 @@ const Overlay: React.FC<OverlayProps> = (p) => {
     boxShadow: "inset 0 0 0 1px #333",
   };
 
-  const titleCss: React.CSSProperties = { fontSize: 18, fontWeight: 500, color: "var(--text)" };
+   const titleCss: React.CSSProperties = { fontSize: 18, fontWeight: 500, color: theme.text };
   const xBtn: React.CSSProperties = {
     background: "#ff3737",
     border: "none",
@@ -60,7 +62,7 @@ const Overlay: React.FC<OverlayProps> = (p) => {
     width: 34,
     height: 34,
     cursor: "pointer",
-    color: "var(--text)",
+    color: theme.text,
     fontSize: 18,
     display: "flex",
     alignItems: "center",
@@ -143,7 +145,7 @@ const Overlay: React.FC<OverlayProps> = (p) => {
               placeholder="Edit title…"
             />
             <button
-              style={neonBtn(p.updating || !p.titleChanged)}
+              style={neonBtn(p.updating || !p.titleChanged, theme)}
               disabled={p.updating || !p.titleChanged}
               onClick={() => {
                 SoundManager.playUISelect();
@@ -186,6 +188,8 @@ export const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({
   onPlay,
   onDismiss,
 }) => {
+  /* pull theme tokens for styling + neonBtn */
+  const theme = useTheme();
   const panelRef = useRef<HTMLDivElement>(null);
 
 
@@ -223,8 +227,8 @@ export const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({
     transform: "translateX(-50%)",
     padding: "14px 28px",
     borderRadius: 28,
-    background: "var(--panel)",
-    boxShadow: "0 10px 30px rgba(0,0,0,.6)",
+    background: theme.surface,
+    boxShadow: theme.shadow,
     color: "#fff",
     display: "flex",
     flexDirection: "column",
@@ -291,7 +295,7 @@ export const GameInfoOverlay: React.FC<GameInfoOverlayProps> = ({
 
       <button
         style={{
-          ...neonBtn(!emulatorFound || !romFound),
+          ...neonBtn(!emulatorFound || !romFound, theme),
           cursor: emulatorFound && romFound ? "pointer" : "not-allowed",
           animation: "pulse .3s ease",
         }}

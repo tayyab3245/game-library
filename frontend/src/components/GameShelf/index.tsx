@@ -18,6 +18,7 @@ import {
   OVERSCROLL_DAMP,
 } from './constants';
 import { shellStyle, getArrowCSS } from './styles';
+import { useTheme } from '../../theme/ThemeContext';
 import { clamp, same } from './helpers';
 import useShelfControls from './useShelfControls';
 import { buildMats3DS } from './materials';
@@ -44,10 +45,11 @@ const GameShelf: React.FC<GameShelfProps> = ({
   onLongPress,
   rows = 1,
 }) => {
+const theme = useTheme();
 
   useLayoutEffect(() => {
     const style = document.createElement("style");
-    style.innerHTML = getArrowCSS();
+    style.innerHTML = getArrowCSS(theme);
     document.head.appendChild(style);
     return () => {
       style.remove(); // 🧽 this fixes the TS2345 warning
@@ -573,7 +575,7 @@ const GameShelf: React.FC<GameShelfProps> = ({
       style={{ width, height, position: 'relative', overflow: 'visible', userSelect: 'none', touchAction: 'none', zIndex: 0 }}
     >
      {/* backdrop shell – now lives *under* the WebGL canvas */}
-      <div ref={shellDiv} style={shellStyle} />
+      <div ref={shellDiv} style={shellStyle(theme)} />
       <div
         className="shelf-arrow left"
         onMouseDown={() => startHold(-1)}

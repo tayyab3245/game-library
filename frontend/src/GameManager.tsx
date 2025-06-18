@@ -1,12 +1,13 @@
 // src/GameManager.tsx
 
 import React, { useState, useEffect, useLayoutEffect } from "react";
-import "./theme.css";                 /* ← import the CSS variables */
+import { ThemeProvider } from "./theme/ThemeContext";
+import { getTheme } from "./theme";
 import GameShelf from "./components/GameShelf";
 import ThemeToggleControl from "./components/ThemeToggleControl";
 import { ADD_MARKER } from "./components/GameShelf/constants";
 import AddGameModal, { GameForm } from "./components/AddGameModal";
-import { styles } from "./styles/GameManager.styles";
+import { getStyles } from "./styles/GameManager.styles";
 import { neonBtn } from "./utils/styles";
 import useGames, { Game } from "./hooks/useGames";
 import SoundManager from "./utils/SoundManager";
@@ -17,6 +18,10 @@ import GridIcon from './components/GridIcon';
 
 export default function GameManager() {
   const { games, loadGames, API } = useGames();
+
+  /* ── theme must come first so later code (incl. CSS-inject hooks) can see it ── */
+  const [themeMode, setThemeMode] = useState<"light" | "dark">("light");
+  const theme                     = getTheme(themeMode);
 
   const [selIdx, setSelIdx]   = useState<number | null>(null);
   const [rowMode, setRowMode] = useState<1 | 2 | 4>(1);     // allow 4 rows
@@ -174,6 +179,8 @@ export default function GameManager() {
   const canLaunch   = !!selGame && romExists && emuExists;
   /* ───────── inject 3DS-style capsule CSS once ───────── */
 useLayoutEffect(()=>{
+  const top = `color-mix(in srgb,${theme.surface} 15%,white)`;
+  const bot = `color-mix(in srgb,${theme.surface} 80%,black)`;
   const s=document.createElement('style');s.innerHTML=`
 .view-toggle {
   position: absolute;
@@ -187,7 +194,7 @@ useLayoutEffect(()=>{
   overflow: hidden;
   background:
     linear-gradient(-35deg, rgba(255,255,255,0.07) 0%, transparent 60%),
-    linear-gradient(180deg, #3b404d 0%, #1a1c22 100%);
+    linear-gradient(180deg,${top} 0%, ${bot} 100%);
   box-shadow:
     inset 0 2px 3px rgba(255,255,255,0.08),
     inset 0 -1px 2px rgba(0,0,0,0.4),
@@ -257,7 +264,7 @@ useLayoutEffect(()=>{
 
   `;
   document.head.appendChild(s);return()=>{document.head.removeChild(s);}
-},[]);
+},[theme.mode]);
 
  
   
@@ -294,14 +301,16 @@ useLayoutEffect(()=>{
     );
   };
 
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  const toggleTheme = () => setTheme(theme === "light" ? "dark" : "light");
+  /* moved ↑ so it’s defined before first use */
+  const toggleTheme = () => setThemeMode(themeMode === "light" ? "dark" : "light");
+
+  const styles = getStyles(theme);
 
   return (
-    <div
-      data-theme={theme}                       /* <- switch vars via data-theme */
-      style={{ ...styles.container, position: "relative" }}
-    >
+    <ThemeProvider theme={theme}>
+      <div
+        style={{ ...styles.container, position: "relative" }}
+      >
       <div style={styles.header}>
         <div style={styles.titleWrap}>
           <h2 style={styles.gameTitle}>{selGame?.title ?? 'Select a game'}</h2>
@@ -319,6 +328,7 @@ useLayoutEffect(()=>{
               key={r}
               className={`seg ${rowMode === r ? 'active' : ''}`}
               title={`${r === 1 ? 'Single' : r === 2 ? 'Double' : 'Quad'} row`}
+              style={{ color: theme.text }}       // NEW – lets GridIcon inherit
               onPointerUp={() => {
                 setRowMode(r as 1 | 2 | 4);
                 SoundManager.playUISelect();
@@ -379,7 +389,8 @@ useLayoutEffect(()=>{
           openEditForSelected();
         }}
       />
-      <ThemeToggleControl onThemeChange={setTheme}/>
+      <ThemeToggleControl onThemeChange={setThemeMode}/>
     </div>
+    </ThemeProvider>
   );
 }

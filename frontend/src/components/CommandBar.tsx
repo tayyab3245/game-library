@@ -1,6 +1,7 @@
 // src/components/CommandBar.tsx
 import React, { useEffect } from "react";
 import SoundManager from "../utils/SoundManager";
+import { useTheme } from "../theme/ThemeContext";
 
 /* ──────────── exported props ──────────── */
 export interface CommandBarProps {
@@ -11,9 +12,10 @@ export interface CommandBarProps {
 }
 
 /* ──────────── design tokens ──────────── */
-const tokens = {
-  top: "#3b404d",
-  bot: "#1d1f26",
+const tokens = (t: ReturnType<typeof useTheme>) => ({
+  // derive a light + dark ramp from the current panel colour
+  top: `color-mix(in srgb,${t.surface} 15%,white)`,
+  bot: `color-mix(in srgb,${t.surface} 80%,black)`,
   gloss: "linear-gradient(-35deg,rgba(255,255,255,.07) 0%,transparent 60%)",
   depth:
     `0 .05em .05em -.01em rgba(5,5,5,1),
@@ -23,6 +25,7 @@ const tokens = {
   dividerHi: "rgba(255,255,255,.17)",
   dividerLo: "rgba(0,0,0,.60)",
   txtGlow: "0 0 4px rgba(0,160,255,.65)",
+  txt: t.text,                 // <-- NEW
   /* brighter seam */
   dividerGlow: "0 0 6px rgba(255,255,255,.40)",
   /* new */
@@ -38,15 +41,15 @@ const tokens = {
   topLight: "rgba(255,255,255,0.25)",  // Stronger top highlight
   insetShadow: "rgba(0,0,0,0.35)",
   segment: {
-    gap: "1px",  // Reduced gap for tighter segmentation
-    shadow: "rgba(0,0,0,0.4)",
+    gap: "1px",
+    shadow: t.shadow,
     highlight: "rgba(255,255,255,0.12)",
     seam: {
       dark: "rgba(0,0,0,0.5)",
       light: "rgba(255,255,255,0.15)"
     }
   }
-};
+});
 
 const CommandBar: React.FC<CommandBarProps> = ({
   onLaunch,
@@ -54,23 +57,24 @@ const CommandBar: React.FC<CommandBarProps> = ({
   canLaunch = true,
   editEnabled = true,
 }) => {
-  /* inject CSS once on mount */
+  const theme = useTheme();
+  const tokensInst = tokens(theme);
   useEffect(() => {
     const style = document.createElement("style");
     style.innerHTML = `
 /* ───── BAR SHELL ─────────────────────────────────────────── */
 .command-bar{
   position:fixed; left:0; right:0; bottom:0;           /* flush bottom */
-  height:${tokens.barH}px; display:flex; overflow:hidden;
-  border-radius:${tokens.radius}px;
+  height:${tokensInst.barH}px; display:flex; overflow:hidden;
+  border-radius:${tokensInst.radius}px;
   gap: 0;  /* Remove gap, we'll use pseudo-elements for seam */
-  padding: ${tokens.segment.gap};  /* Add padding inside bar */
-  background: ${tokens.bot};  /* Darker background for gap */
+  padding: ${tokensInst.segment.gap};  /* Add padding inside bar */
+  background: ${tokensInst.bot};  /* Darker background for gap */
   background:
-    ${tokens.gloss},
-    linear-gradient(180deg,${tokens.top} 0%,${tokens.bot} 100%);
+    ${tokensInst.gloss},
+    linear-gradient(180deg,${tokensInst.top} 0%,${tokensInst.bot} 100%);
   background-blend-mode:soft-light;
-  box-shadow:${tokens.depth};
+  box-shadow:${tokensInst.depth};
   z-index:3000; pointer-events:auto;
   }
 
@@ -88,7 +92,7 @@ const CommandBar: React.FC<CommandBarProps> = ({
   content:""; position:absolute; inset:0; border-radius:inherit;
   box-shadow:
     /* Enhanced top light */
-    inset 0 1px 2px ${tokens.topLight},
+    inset 0 1px 2px ${tokensInst.topLight},
     /* Existing shadows with adjustments */
     inset -.06em -.06em .06em 0 rgba(5,5,5,.25),
     inset 0 0 .08em .24em rgba(255,255,255,.25),
@@ -102,24 +106,24 @@ const CommandBar: React.FC<CommandBarProps> = ({
 /* ───── SEGMENTS (Launch | Edit) ──────────────────────────── */
 .command-bar .seg{
   position:relative; border:none; background:transparent;
-  font:700 ${tokens.fontSize}px/1 "Press Start 2P", sans-serif;
-  color:rgba(255,255,255,0.95); text-transform:uppercase; letter-spacing:.5px;
+  font:700 ${tokensInst.fontSize}px/1 "Press Start 2P", sans-serif;
+  color:${tokensInst.txt}; text-transform:uppercase; letter-spacing:.5px;
   text-shadow: 
-    0 -1px 1px ${tokens.text3d.dark},
-    0 1px 1px ${tokens.text3d.light},
-    ${tokens.txtGlow};
+    0 -1px 1px ${tokensInst.text3d.dark},
+    0 1px 1px ${tokensInst.text3d.light},
+    ${tokensInst.txtGlow};
   display:flex; align-items:center; justify-content:center;
   cursor:pointer; user-select:none;
   transition:filter .12s, transform .12s;
   border-radius: 0;
   background:
-    ${tokens.gloss},
-    linear-gradient(180deg,${tokens.top} 0%,${tokens.bot} 100%);
+    ${tokensInst.gloss},
+    linear-gradient(180deg,${tokensInst.top} 0%,${tokensInst.bot} 100%);
   background-blend-mode: soft-light;
   box-shadow: 
-    inset 0 1px 0 ${tokens.segment.highlight},
-    inset 0 4px 5px -2px ${tokens.insetShadow},
-    0 1px 2px ${tokens.segment.shadow};
+    inset 0 1px 0 ${tokensInst.segment.highlight},
+    inset 0 4px 5px -2px ${tokensInst.insetShadow},
+    0 1px 2px ${tokensInst.segment.shadow};
 }
 
 /* Remove the old divider since we're using gap */
@@ -145,7 +149,7 @@ const CommandBar: React.FC<CommandBarProps> = ({
   transition:opacity .12s;
 }
 /* give each half a slightly different base-tone */
-.command-bar .launch::before{ opacity:${tokens.segIdleLight}; }
+.command-bar .launch::before{ opacity:${tokensInst.segIdleLight}; }
 .command-bar .edit::before { opacity:0; }
 /* hover brighten */
 .command-bar .seg:hover::before{ opacity:.35; }
@@ -154,11 +158,11 @@ const CommandBar: React.FC<CommandBarProps> = ({
   transform:translateY(.07em);
   color: rgba(255,255,255,0.85);
   text-shadow: 
-    0 -1px 1px ${tokens.text3d.pressed},
-    0 1px 0 ${tokens.text3d.light};
-  background: linear-gradient(180deg,${tokens.bot} 0%,${tokens.top} 100%);
+    0 -1px 1px ${tokensInst.text3d.pressed},
+    0 1px 0 ${tokensInst.text3d.light};
+  background: linear-gradient(180deg,${tokensInst.bot} 0%,${tokensInst.top} 100%);
   box-shadow: 
-    inset 0 2px 5px ${tokens.insetShadow},
+    inset 0 2px 5px ${tokensInst.insetShadow},
     0 1px 1px rgba(255,255,255,0.1);
 }
 .command-bar .seg:active::before{
@@ -167,7 +171,7 @@ const CommandBar: React.FC<CommandBarProps> = ({
 
 /* focus ring */
 .command-bar .seg:focus-visible{
-  outline:3px solid ${tokens.focus}; outline-offset:-3px;
+  outline:3px solid ${tokensInst.focus}; outline-offset:-3px;
 }
 
 /* disabled */
@@ -178,20 +182,20 @@ const CommandBar: React.FC<CommandBarProps> = ({
 
 /* Update the command bar and segment styling */
 .command-bar .edit {
-  border-top-left-radius: ${Math.floor(tokens.radius * 0.8)}px;
-  border-bottom-left-radius: ${Math.floor(tokens.radius * 0.8)}px;
-  border-right: 1px solid ${tokens.segment.seam.dark};
+  border-top-left-radius: ${Math.floor(tokensInst.radius * 0.8)}px;
+  border-bottom-left-radius: ${Math.floor(tokensInst.radius * 0.8)}px;
+  border-right: 1px solid ${tokensInst.segment.seam.dark};
 }
 
 .command-bar .launch {
-  border-top-right-radius: ${Math.floor(tokens.radius * 0.8)}px;
-  border-bottom-right-radius: ${Math.floor(tokens.radius * 0.8)}px;
-  border-left: 1px solid ${tokens.segment.seam.light};
+  border-top-right-radius: ${Math.floor(tokensInst.radius * 0.8)}px;
+  border-bottom-right-radius: ${Math.floor(tokensInst.radius * 0.8)}px;
+  border-left: 1px solid ${tokensInst.segment.seam.light};
 }
 `;
-    document.head.appendChild(style);
-    return () => { document.head.removeChild(style); };
-  }, []);
+   document.head.appendChild(style);
+   return () => { document.head.removeChild(style); };
+  }, [theme.mode]);            // <— rebuilt after every toggle
 
   /* play click sound */
   const blip = () => SoundManager.playPan();

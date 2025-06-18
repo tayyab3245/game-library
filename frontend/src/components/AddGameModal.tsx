@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { neonBtn } from "../utils/styles";
+import { useTheme } from "../theme/ThemeContext";
 import SoundManager from "../utils/SoundManager";
 
 export interface AddGameModalProps {
@@ -27,6 +28,7 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
   onDismiss,
   onDelete,
 }) => {
+   const theme = useTheme();
   const [form, setForm] = useState<GameForm>({
     title: initial.title ?? "",
     coverFile: initial.coverFile ?? null,
@@ -146,7 +148,7 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
           <div style={label}>Cover Art</div>
           {mode === "edit" && onDelete && (
             <button
-              style={{ ...neonBtn(false), background: "#ff3737" }}
+              style={{ ...neonBtn(false, theme), background: "#ff3737" }}
               onClick={() => {
                 SoundManager.playUIBack();
                 onDelete();
@@ -156,7 +158,7 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
             </button>
           )}
           <button
-            style={neonBtn(false)}
+            style={neonBtn(false, theme)}
             onClick={() => {
               SoundManager.playUISelect();
               coverRef.current?.click();
@@ -200,7 +202,7 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={label}>ROM Path</div>
           <button
-            style={neonBtn(false)}
+            style={neonBtn(false, theme)}
             onClick={() => {
               SoundManager.playUISelect();
               romRef.current?.click();
@@ -252,7 +254,7 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={label}>Emulator Path</div>
           <button
-            style={neonBtn(false)}
+            style={neonBtn(false, theme)}
             onClick={() => {
               SoundManager.playUISelect();
               emuRef.current?.click();
@@ -309,7 +311,7 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
           }}
         >
           <button
-            style={neonBtn(true)}
+            style={neonBtn(true, theme)}
             onClick={() => {
               SoundManager.playUIBack();
               onDismiss();
@@ -323,7 +325,7 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
                 (mode === "add" && !form.coverFile) ||
                 !form.romPath ||
                 !form.emuPath
-            )}
+            , theme)}
             disabled={
               !form.title ||
               (mode === "add" && !form.coverFile) ||

@@ -1,8 +1,9 @@
 import { CSSProperties } from 'react';
+import { Theme } from '../theme';
 
 type StyleMap = { [k: string]: CSSProperties };
 
-export const styles: StyleMap = {
+export const getStyles = (t: Theme): StyleMap => ({
   container: {
     minHeight: '100vh',
     maxWidth: '100vw',
@@ -11,7 +12,7 @@ export const styles: StyleMap = {
     overflowY: 'hidden',
     overflowX: 'hidden',
     /* theme-aware */
-    background: 'var(--bg)',
+    background: t.background,
     position: 'fixed',
     top: 0,
     left: 0,
@@ -26,15 +27,16 @@ export const styles: StyleMap = {
     minHeight: 120,
     padding: '20px 32px 40px 32px',
     borderRadius: '0 0 48px 48px',
+    /* same glossy highlight on top, but derive the ramp from t.surface */
     background:
-      'linear-gradient(-35deg,rgba(255,255,255,.07) 0%,transparent 60%),' +
-      'linear-gradient(180deg,#3b404d 0%,#1d1f26 100%)',
+      `linear-gradient(-35deg,rgba(255,255,255,.07) 0%,transparent 60%),` +
+      `linear-gradient(180deg,
+        color-mix(in srgb,${t.surface} 15%,white) 0%,
+        color-mix(in srgb,${t.surface} 80%,black) 100%)`,
     backgroundBlendMode: 'soft-light',
-    boxShadow:
-      '0 .05em .05em -.01em rgba(5,5,5,1),' +
-      '0 .01em .01em -.01em rgba(5,5,5,.5),' +
-      '.18em .36em .14em -.03em rgba(5,5,5,.25)',
-    color: 'var(--text)',
+    /* reuse the global shadow token so dark & light match */
+    boxShadow: t.shadow,
+    color: t.text,
     fontFamily: '"Nunito", sans-serif',
   },
   dateTime: {
@@ -42,7 +44,7 @@ export const styles: StyleMap = {
     top: 12,
     right: 24,
     fontSize: 14,
-    color: 'var(--text)',
+    color: t.text,
   },
   titleWrap: {
     textAlign: 'center',
@@ -58,7 +60,7 @@ export const styles: StyleMap = {
   },
   hours: {
     fontSize: 16,
-    color: 'var(--text)',
+    color: t.text,
     marginTop: 4,
   },
   form: {
@@ -94,7 +96,7 @@ export const styles: StyleMap = {
   },
   input: {
     background: '#1e1e24',
-     color: 'var(--text)',
+    color: t.text,
     padding: '12px 16px',
     borderRadius: 16,
     minWidth: 180,
@@ -109,11 +111,11 @@ export const styles: StyleMap = {
   },
   /* new – top-centre game title */
   gameTitle: {
-    color: 'var(--text)',
+     color: t.text,
     fontSize: 28,
     fontWeight: 600,
     textAlign: 'center',
     margin: '8px 0 0 0',
     fontFamily: '"Nunito", sans-serif',
   },
-};
+});

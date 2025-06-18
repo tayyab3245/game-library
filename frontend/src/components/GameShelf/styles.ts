@@ -1,18 +1,20 @@
-export const shellStyle: React.CSSProperties = {
+import { Theme } from '../../theme';
+
+export const shellStyle = (t: Theme): React.CSSProperties => ({
   position: 'absolute',
   left: 0,
   top: 0,
   bottom: '16px', // move bottom edge upward
   borderRadius: 40,
-  background: 'linear-gradient(180deg, color-mix(in srgb,var(--panel) 20%,white) 0%, var(--panel) 100%)',
-  boxShadow: '0 0.6em 1em rgba(0,0,0,.55)',
-  borderBottom: '6px solid color-mix(in srgb,var(--panel) 60%,black)',
+  background: `linear-gradient(180deg, color-mix(in srgb,${t.surface} 20%,white) 0%, ${t.surface} 100%)`,
+  boxShadow: t.shadow,
+  borderBottom: `6px solid color-mix(in srgb,${t.surface} 60%,black)`,
   transition: 'transform 0.3s ease-out',
   pointerEvents: 'none',
   zIndex: -1,
-};
+});
 
-export const getArrowCSS = () => `
+export const getArrowCSS = (t: Theme) => `
   .shelf-arrow {
     position: absolute;
     top: 50%;
@@ -21,7 +23,7 @@ export const getArrowCSS = () => `
     height: 72px;
     background:
       linear-gradient(-35deg, rgba(255,255,255,0.07) 0%, transparent 60%),
-      linear-gradient(180deg, color-mix(in srgb,var(--panel) 10%,white) 0%, var(--panel) 100%);
+      linear-gradient(180deg, color-mix(in srgb,${t.surface} 10%,white) 0%, ${t.surface} 100%);
     box-shadow:
       inset 0 2px 3px rgba(255,255,255,0.08),
       inset 0 -1px 2px rgba(0,0,0,0.4),
@@ -44,7 +46,7 @@ export const getArrowCSS = () => `
     height: 0;
     border-style: solid;
     border-width: 12px 18px 12px 0;
-    border-color: transparent var(--text) transparent transparent;
+    border-color: transparent ${t.text} transparent transparent;
     filter:
       drop-shadow(0 0 1px rgba(255, 255, 255, 0.4))
       drop-shadow(0 0 4px rgba(255, 255, 255, 0.2));
@@ -63,7 +65,7 @@ export const getArrowCSS = () => `
     transform: translateY(-50%) scale(1.05);
     background:
       linear-gradient(-35deg, rgba(255,255,255,0.12) 0%, transparent 60%),
-      linear-gradient(180deg, color-mix(in srgb,var(--panel) 25%,white) 0%, color-mix(in srgb,var(--panel) 80%,black) 100%);
+      linear-gradient(180deg, color-mix(in srgb,${t.surface} 25%,white) 0%, color-mix(in srgb,${t.surface} 80%,black) 100%);
     box-shadow:
       inset 0 2px 3px rgba(255,255,255,0.1),
       inset 0 -1px 2px rgba(0,0,0,0.5),
