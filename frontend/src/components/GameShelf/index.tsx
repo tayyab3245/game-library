@@ -236,6 +236,23 @@ const theme = useTheme();
   useEffect(() => {
     if (!renderer.current) return;
 
+    /* ----------------------------------------------------------- *
+     * If the only entry left is the ADD_MARKER, remove any         *
+     * previous selection and reset that cube’s transform.          *
+     * ----------------------------------------------------------- */
+    const onlyAdd =
+      textures.length === 1 && textures[0] === ADD_MARKER;
+    if (onlyAdd) {
+      // wipe selection so the “+” isn’t enlarged/rotated
+      selectMesh(null, false);
+      if (meshes.current[0]) {
+        const plus = meshes.current[0];
+        plus.rotation.set(0, 0, 0);
+        const idle = LAYOUT[rows].scale;
+        plus.scale.set(idle, idle, idle);
+      }
+    }
+
     const texturesChanged = !same(urls.current, textures);
     const rowSwitch       = prevRows.current !== rows;
     if (!texturesChanged && !rowSwitch) return;   // nothing to do
@@ -244,6 +261,45 @@ const theme = useTheme();
     prevRows.current = rows;
 
     const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
+
+  
+    /* ------------------------------------------------------------------ *
+     * Some covers 404 on the very first request because the upload is
+     * still being flushed to disk.  Wrap TextureLoader in a tiny retry
+     * helper so the material can recover instead of staying grey.
+     * ------------------------------------------------------------------ */
+     /* helper: deep-dispose single or array materials */
+     const disposeMaterial = (mat: any) => {
+       if (Array.isArray(mat)) mat.forEach(m => m?.dispose?.());
+       else mat?.dispose?.();
+     };
+
+     const loadWithRetry = (
+      url: string,
+      mesh: THREE.Mesh,
+      tries = 0,
+      maxTries = 3,
+      delay = 400        /* ms */
+    ) => {
+      loader.load(
+        url,
+        tex => {
+          mesh.material = buildMats3DS(tex, renderer.current);
+          mesh.userData.url = url;
+        },
+        undefined,
+        () => {
+          if (tries < maxTries) {
+            /* eslint-disable-next-line @typescript-eslint/no-misused-promises */
+            setTimeout(() => loadWithRetry(url, mesh, tries + 1), delay);
+          } else {
+            mesh.material = new THREE.MeshBasicMaterial({ color: 0x555555 });
+            mesh.userData.url = url;
+          }
+        },
+      );
+    };
 
     textures.forEach((url, i) => {
       /* 5a. Compute box dims (3DS-only) */
@@ -349,11 +405,15 @@ const theme = useTheme();
            *  • give it a temporary material so it isn't invisible
            *  • make it the current selection immediately
            */
-          if (wasAdd && !isAdd) {
-            mesh.material = new THREE.MeshBasicMaterial({ color: 0x444444 });
-            selectMesh(mesh, false);
-          }
-
+         /* “+” → real cover */
+         if (wasAdd && !isAdd) {
+           disposeMaterial(mesh.material);                // 🔑 wipe old mats
+           mesh.material = new THREE.MeshBasicMaterial({  // temp grey
+             color: 0x444444,
+           });
+           loadWithRetry(url, mesh);                      // 🔑 actually load!
+           selectMesh(mesh, false);                       // pop into focus
+         }
            /* real → add  ➜  remove old brackets */
            if (!wasAdd && isAdd) {
              if (mesh.userData.outline) {
@@ -393,9 +453,14 @@ const theme = useTheme();
             bracketGroup.add(makeBracket(sw / 2, -sh / 2));
         }
         mesh.userData.url = url;
-              } else if (url === ADD_MARKER) {
-          mesh.userData.isAdd = true; // “add” cube
-          const invisible = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 });
+         } else if (url === ADD_MARKER) {
+           /* real cover → “+” cube */
+           mesh.userData.isAdd = true;
+           disposeMaterial(mesh.material);                // 🔑 nuke old art
+           const invisible = new THREE.MeshBasicMaterial({
+             transparent: true,
+             opacity: 0,
+           });
           mesh.material = Array(6).fill(invisible);
 
           if (!mesh.userData.plusBuilt) {
@@ -418,18 +483,7 @@ const theme = useTheme();
           }
           mesh.userData.url = url;
         } else if (mesh.userData.url !== url) {
-          loader.load(
-            url,
-            (tex) => {
-              mesh.material = buildMats3DS(tex, renderer.current);
-              mesh.userData.url = url;
-            },
-            undefined,
-            () => {
-              mesh.material = new THREE.MeshBasicMaterial({ color: 0x555555 });
-              mesh.userData.url = url;
-            }
-          );
+          loadWithRetry(url, mesh);
         }
 
       /* 5d. Store dims for layout (note: “add” cube is only 10 % thick) */
