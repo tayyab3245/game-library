@@ -27,16 +27,21 @@ export default function useShelfControls(opts: ShelfControlParams) {
   const holdTid = useRef<number | null>(null);
   const holdDir = useRef<-1 | 1>(1);
 
+  /* scroll/arrow helper that skips the “+” cube */
   const STEP = () => {
-    if (opts.currentCenterIdx.current === null) return;
+    const playable = opts.meshes.current.filter(m => !m.userData.isAdd);
+    if (!playable.length) return;
+
+    const cur = playable.findIndex(m => m === opts.selectedRef.current);
     const next = clamp(
-      opts.currentCenterIdx.current + holdDir.current,
+      (cur === -1 ? 0 : cur) + holdDir.current,
       0,
-      Math.max(0, opts.meshes.current.length - 2),
+      playable.length - 1,
     );
-    if (next !== opts.currentCenterIdx.current) {
-      opts.selectMesh(opts.meshes.current[next], true);
-      opts.currentCenterIdx.current = next;
+    if (next !== cur) {
+      opts.selectMesh(playable[next], true);
+      /* translate back to absolute index for other logic */
+      opts.currentCenterIdx.current = opts.meshes.current.indexOf(playable[next]);
     }
   };
 

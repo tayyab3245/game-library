@@ -5,9 +5,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import SoundManager from '../../utils/SoundManager';
 import {
   ADD_MARKER,
-  FULL_W_3DS,
   FULL_H_3DS,
-  BACK_3DS,
   SPINE_3DS,
   FRONT_3DS,
   HEIGHT_RATIO_3DS,
@@ -15,7 +13,6 @@ import {
   DEPTH_FACTOR,
   PANEL_RATIO,
   LAYOUT,
-  OVERSCROLL_DAMP,
 } from './constants';
 import { shellStyle, getArrowCSS } from './styles';
 import { useTheme } from '../../theme/ThemeContext';
@@ -49,6 +46,7 @@ const theme = useTheme();
 
   useLayoutEffect(() => {
     const style = document.createElement("style");
+    style.dataset.owner = "gameshelf-arrows";   // unique tag for safe cleanup
     style.innerHTML = getArrowCSS(theme);
     document.head.appendChild(style);
     return () => {
@@ -80,15 +78,18 @@ const theme = useTheme();
   const bounds = useRef<{ min: number; max: number }>({ min: 0, max: 0 });
     /* first-gesture flag for background music  */
   const hasPlayedBackground = useRef(false);
-  const clamp = (v: number, lo: number, hi: number) =>
-    v < lo ? lo : v > hi ? hi : v;
-  const same = (a: string[], b: string[]) =>
-    a.length === b.length && a.every((v, i) => v === b[i]);
+  /* removed duplicate clamp/same – we already import the shared helpers */
   /* remember the last rows value */
   const prevRows = useRef<1 | 2 >(rows);
   // track which mesh is currently centred so we know when to “click”-advance
   const currentCenterIdx = useRef<number | null>(null);
-  /* background shell behind the shelf */
+  /* ── guarantee an initial selection once meshes exist ── */
+  useLayoutEffect(() => {
+    if (!selectedRef.current && meshes.current.length) {
+      const firstPlayable = meshes.current.find(m => !m.userData.isAdd);
+      if (firstPlayable) selectMesh(firstPlayable, false);
+    }
+  }, []);   // run once
 
   /** ----------------------------------------------------------
    *  Helpers
@@ -243,7 +244,6 @@ const theme = useTheme();
     prevRows.current = rows;
 
     const loader = new THREE.TextureLoader();
-    loader.setCrossOrigin('anonymous');
 
     textures.forEach((url, i) => {
       /* 5a. Compute box dims (3DS-only) */
@@ -280,39 +280,8 @@ const theme = useTheme();
           /* leave padding all-round */
           mesh.userData.padding = bevelRadius * 2;
           if (!isAdd) {
-            // 2) Create a simple “wall" behind this box
-          // create a rounded-rectangle shape for beveled shadow
-          const sw = boxW * 1.6 * 0.75, sh = boxH * 1.6 * 0.75; // shrink background shadow by 25%
-          const radius = Math.min(sw, sh) * 0.1; // container bevel amount
-          const shape = new THREE.Shape();
-          shape.moveTo(-sw/2 + radius, -sh/2);
-          shape.lineTo(sw/2 - radius, -sh/2);
-          shape.quadraticCurveTo(sw/2, -sh/2, sw/2, -sh/2 + radius);
-          shape.lineTo(sw/2, sh/2 - radius);
-          shape.quadraticCurveTo(sw/2, sh/2, sw/2 - radius, sh/2);
-          shape.lineTo(-sw/2 + radius, sh/2);
-          shape.quadraticCurveTo(-sw/2, sh/2, -sw/2, sh/2 - radius);
-          shape.lineTo(-sw/2, -sh/2 + radius);
-          shape.quadraticCurveTo(-sw/2, -sh/2, -sw/2 + radius, -sh/2);
-          const shadowGeo = new THREE.ShapeGeometry(shape);
-          /* ---------- drop-shadow panel (separate object) ---------- */
-          const shadow = new THREE.Mesh(
-            shadowGeo,
-            new THREE.MeshBasicMaterial({
-              color: new THREE.Color(theme.panelBot).convertSRGBToLinear(),
-              opacity: 0.22,          // subtle grey
-              transparent: true,
-              side: THREE.DoubleSide,
-              depthWrite: false,      // don’t *write* Z, so it stays soft
-              depthTest : true,       // DO read Z – lets the cover over-paint
-            }),
-          );
-           shadow.rotation.y = Math.PI;                     // face camera
-           shadow.renderOrder = -1;              // draw before the case
-           /* Z-offset is applied in the layout pass so X/Y can follow grid */
-           shelf.current.add(shadow);                       // keep independent
-           mesh.userData.shadow = shadow;
           // create corner brackets (four "L" shapes) around shadow
+          const sw = boxW * 1.6 * 0.75, sh = boxH * 1.6 * 0.75;
           const bracketGroup = new THREE.Group();
           const bracketLength = Math.min(sw, sh) * 0.2;
           const mat = new THREE.LineBasicMaterial({ color: 0xffa500 });
@@ -374,54 +343,34 @@ const theme = useTheme();
             ? new RoundedBoxGeometry(boxW * 0.8, boxW * 0.8, boxD * 0.1, 8, bevelRadius)
             : new RoundedBoxGeometry(boxW, boxH, boxD, 16, bevelRadius);
 
-          /* real → add  ➜  remove old drop-shadow + brackets */
-          if (!wasAdd && isAdd) {
-            if (mesh.userData.shadow) {
-              shelf.current.remove(mesh.userData.shadow);
-              (mesh.userData.shadow.material as any).dispose?.();
-              (mesh.userData.shadow.geometry  as any).dispose?.();
-              delete mesh.userData.shadow;
-            }
-            if (mesh.userData.outline) {
-              shelf.current.remove(mesh.userData.outline);
-              mesh.userData.outline.traverse((o: any) => {
-                o.material?.dispose?.();
-                o.geometry?.dispose?.();
+             
+          /* ─── NEW ───
+           * a former “+” cube is now a real cover:
+           *  • give it a temporary material so it isn't invisible
+           *  • make it the current selection immediately
+           */
+          if (wasAdd && !isAdd) {
+            mesh.material = new THREE.MeshBasicMaterial({ color: 0x444444 });
+            selectMesh(mesh, false);
+          }
+
+           /* real → add  ➜  remove old brackets */
+           if (!wasAdd && isAdd) {
+             if (mesh.userData.outline) {
+               shelf.current.remove(mesh.userData.outline);
+               mesh.userData.outline.traverse((o: any) => {
+                 o.material?.dispose?.();
+                 o.geometry?.dispose?.();
               });
               delete mesh.userData.outline;
             }
           }
 
             
-          /* when converting from an “add” cube, build missing background */
-          if (wasAdd && !isAdd) {
-            const sw = boxW * 1.6, sh = boxH * 1.6;
-            const radius = Math.min(sw, sh) * 0.1;
-            const shape = new THREE.Shape();
-            shape.moveTo(-sw / 2 + radius, -sh / 2);
-            shape.lineTo(sw / 2 - radius, -sh / 2);
-            shape.quadraticCurveTo(sw / 2, -sh / 2, sw / 2, -sh / 2 + radius);
-            shape.lineTo(sw / 2, sh / 2 - radius);
-            shape.quadraticCurveTo(sw / 2, sh / 2, sw / 2 - radius, sh / 2);
-            shape.lineTo(-sw / 2 + radius, sh / 2);
-            shape.quadraticCurveTo(-sw / 2, sh / 2, -sw / 2, sh / 2 - radius);
-            shape.lineTo(-sw / 2, -sh / 2 + radius);
-            shape.quadraticCurveTo(-sw / 2, -sh / 2, -sw / 2 + radius, -sh / 2);
-            const shadowGeo = new THREE.ShapeGeometry(shape);
-             const shadow = new THREE.Mesh(
-               shadowGeo,
-               new THREE.MeshBasicMaterial({
-                 color: new THREE.Color(theme.panelBot).convertSRGBToLinear(),
-                opacity: 0.05,
-                transparent: true,
-                side: THREE.DoubleSide,
-              }),
-            );
-            shadow.rotation.y = Math.PI;
-            mesh.userData.shadow = shadow;
-            shelf.current.add(shadow);
-
-            const bracketGroup = new THREE.Group();
+           /* when converting from an “add” cube, build missing brackets only */
+           if (wasAdd && !isAdd) {
+             const sw = boxW * 1.6, sh = boxH * 1.6;
+             const bracketGroup = new THREE.Group();
             const bracketLength = Math.min(sw, sh) * 0.2;
             const makeBracket = (cx: number, cy: number) => {
               const dirX = cx < 0 ? 1 : -1;
@@ -492,19 +441,17 @@ const theme = useTheme();
     while (meshes.current.length > textures.length) {
       const m = meshes.current.pop()!;
       shelf.current.remove(m);
-      /* also dispose of helper meshes that were parented directly to the shelf */
-      if (m.userData.shadow) {
-        shelf.current.remove(m.userData.shadow);
-        (m.userData.shadow.material as any).dispose?.();
-        (m.userData.shadow.geometry  as any).dispose?.();
-      }
-      if (m.userData.outline) {
-        shelf.current.remove(m.userData.outline);
-        m.userData.outline.traverse((o: any) => {
-          o.material?.dispose?.();
-          o.geometry?.dispose?.();
-        });
-      }
+  // NEW – also purge the helper objects we attached to the shelf
+  ['outline'].forEach(key => {
+    const obj = m.userData[key];
+    if (obj) {
+      shelf.current.remove(obj);
+      obj.traverse((o: THREE.Object3D) => {
+        (o as any).geometry?.dispose?.();
+        (o as any).material?.dispose?.();
+      });
+    }
+  });
       (m.material as any).dispose?.();
       m.geometry.dispose();
     }
@@ -540,14 +487,10 @@ const theme = useTheme();
 
       m.position.set(x, y, 0);
       m.userData.homeY = y;
-      if (!m.userData.isAdd && m.userData.shadow && m.userData.outline) {
-         /* front & back planes */
-         const zFront =  (m.userData.actualDepth as number) / 2 + 0.01;  // brackets
-         const zBack  = -(m.userData.actualDepth as number) / 2 - 0.6;   // shadow (push ~0.6 wu back)
-
-         m.userData.shadow.position.set(x, y, zBack);
-         m.userData.outline.position.set(x, y, zFront);
-         m.userData.outline.visible = selectedRef.current === m;
+       if (!m.userData.isAdd && m.userData.outline) {
+          const zFront = (m.userData.actualDepth as number) / 2 + 0.01;
+          m.userData.outline.position.set(x, y, zFront);
+          m.userData.outline.visible = selectedRef.current === m;
        }
 
     });
@@ -593,10 +536,10 @@ const theme = useTheme();
         bounds.current.max,
       );
     }
-        // ----------------------------------------------------------------
-    // Ensure there's always an initial selection for arrow navigation
-    if (!selectedRef.current && meshes.current.length > 0) {
-      selectMesh(meshes.current[0], false);
+    /* Ensure there's always an initial selection – pick the first REAL cover */
+    if (!selectedRef.current) {
+      const firstReal = meshes.current.find(m => !m.userData.isAdd);
+      if (firstReal) selectMesh(firstReal, false);
     }
     // ----------------------------------------------------------------
     // ++ sync CSS shell after layout

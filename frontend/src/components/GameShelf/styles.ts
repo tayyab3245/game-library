@@ -9,7 +9,7 @@ export const shellStyle = (t: Theme): React.CSSProperties => ({
   background: `linear-gradient(180deg,${t.panelTop} 0%,${t.panelBot} 100%)`,
   boxShadow: t.shadow,
   borderBottom: `6px solid ${t.panelEdge}`,
-  transition: 'transform 0.3s ease-out',
+  transition: 'transform 0.25s ease-out',  /* keep in sync with TIMINGS.snap */
   pointerEvents: 'none',
   zIndex: -1,
 });

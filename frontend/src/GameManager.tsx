@@ -8,7 +8,6 @@ import ThemeToggleControl from "./components/ThemeToggleControl";
 import { ADD_MARKER } from "./components/GameShelf/constants";
 import AddGameModal, { GameForm } from "./components/AddGameModal";
 import { getStyles } from "./styles/GameManager.styles";
-import { neonBtn } from "./utils/styles";
 import useGames, { Game } from "./hooks/useGames";
 import SoundManager from "./utils/SoundManager";
 import CommandBar from "./components/CommandBar";
