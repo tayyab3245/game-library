@@ -52,9 +52,9 @@ const theme = useTheme();
     style.innerHTML = getArrowCSS(theme);
     document.head.appendChild(style);
     return () => {
-      style.remove(); // 🧽 this fixes the TS2345 warning
+      style.remove(); //  this fixes the TS2345 warning
     };
-  }, []);
+  }, [theme.mode]);
   const container = useRef<HTMLDivElement>(null);
   const renderer  = useRef<THREE.WebGLRenderer>(null!);
   const scene     = useRef<THREE.Scene>(null!);
@@ -373,6 +373,25 @@ const theme = useTheme();
           mesh.geometry = isAdd
             ? new RoundedBoxGeometry(boxW * 0.8, boxW * 0.8, boxD * 0.1, 8, bevelRadius)
             : new RoundedBoxGeometry(boxW, boxH, boxD, 16, bevelRadius);
+
+          /* real → add  ➜  remove old drop-shadow + brackets */
+          if (!wasAdd && isAdd) {
+            if (mesh.userData.shadow) {
+              shelf.current.remove(mesh.userData.shadow);
+              (mesh.userData.shadow.material as any).dispose?.();
+              (mesh.userData.shadow.geometry  as any).dispose?.();
+              delete mesh.userData.shadow;
+            }
+            if (mesh.userData.outline) {
+              shelf.current.remove(mesh.userData.outline);
+              mesh.userData.outline.traverse((o: any) => {
+                o.material?.dispose?.();
+                o.geometry?.dispose?.();
+              });
+              delete mesh.userData.outline;
+            }
+          }
+
             
           /* when converting from an “add” cube, build missing background */
           if (wasAdd && !isAdd) {
@@ -473,6 +492,19 @@ const theme = useTheme();
     while (meshes.current.length > textures.length) {
       const m = meshes.current.pop()!;
       shelf.current.remove(m);
+      /* also dispose of helper meshes that were parented directly to the shelf */
+      if (m.userData.shadow) {
+        shelf.current.remove(m.userData.shadow);
+        (m.userData.shadow.material as any).dispose?.();
+        (m.userData.shadow.geometry  as any).dispose?.();
+      }
+      if (m.userData.outline) {
+        shelf.current.remove(m.userData.outline);
+        m.userData.outline.traverse((o: any) => {
+          o.material?.dispose?.();
+          o.geometry?.dispose?.();
+        });
+      }
       (m.material as any).dispose?.();
       m.geometry.dispose();
     }

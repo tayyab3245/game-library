@@ -126,13 +126,14 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
   };
 
   return (
-    <div
-      style={overlay}
-      onClick={() => {
-        SoundManager.playUIBack();
-        onDismiss();
-      }}
-    >
+     <div
+       style={overlay}
+       onClick={(e) => {
+         if ((e.target as HTMLElement) !== e.currentTarget) return; // click on backdrop only
+         SoundManager.playUIBack();
+         onDismiss();
+       }}
+     >
       <div style={panel} onClick={(e) => e.stopPropagation()}>
         <h2 style={{ margin: 0, textAlign: "left" }}>
           {mode === "add" ? "Add Game" : "Edit Game"}
@@ -311,7 +312,7 @@ const AddGameModal: React.FC<AddGameModalProps> = ({
           }}
         >
           <button
-            style={neonBtn(true, theme)}
+            style={neonBtn(false, theme)}
             onClick={() => {
               SoundManager.playUIBack();
               onDismiss();

@@ -4,7 +4,7 @@ export const shellStyle = (t: Theme): React.CSSProperties => ({
   position: 'absolute',
   left: 0,
   top: 0,
-  bottom: '16px', // move bottom edge upward
+  bottom: '96px',          // leave breathing-room above CommandBar
   borderRadius: 40,
   background: `linear-gradient(180deg,${t.panelTop} 0%,${t.panelBot} 100%)`,
   boxShadow: t.shadow,

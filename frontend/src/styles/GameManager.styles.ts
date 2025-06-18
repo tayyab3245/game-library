@@ -25,7 +25,10 @@ export const getStyles = (t: Theme): StyleMap => ({
   header: {
     position: 'relative',
     minHeight: 120,
-    padding: '20px 32px 40px 32px',
+    /* a little shorter & centred */
+    padding: '20px 32px 32px 32px',
+    maxWidth: '800px',          // “medium” width cap
+    margin: '0 auto 0',      // centres & drops heade
     borderRadius: '0 0 48px 48px',
      /* same glossy highlight on top, but now derive the ramp from panel* tokens */
      background:
@@ -37,17 +40,19 @@ export const getStyles = (t: Theme): StyleMap => ({
     color: t.text,
     fontFamily: '"Nunito", sans-serif',
   },
-  dateTime: {
-    position: 'absolute',
-    top: 12,
-    right: 24,
-    fontSize: 14,
-    color: t.text,
-  },
-  titleWrap: {
-    textAlign: 'center',
-    fontFamily: '"Press Start 2P", sans-serif',
-  },
+    dateTime: {
+      position: 'absolute',
+      top: 14,
+      right: 28,
+      fontSize: 14,                         // back to subtle
+      fontFamily: '"Nunito", sans-serif',
+      color: t.text,
+      userSelect: 'none',
+    },
+      titleWrap: {
+        textAlign: 'center',
+        fontFamily: '"Press Start 2P", sans-serif',
+      },
   middle: {
     /* fill remaining space – centres GameShelf perfectly */
     flex: '1 1 1',
@@ -109,11 +114,14 @@ export const getStyles = (t: Theme): StyleMap => ({
   },
   /* new – top-centre game title */
   gameTitle: {
-     color: t.text,
+    color: t.text,
     fontSize: 28,
     fontWeight: 600,
     textAlign: 'center',
     margin: '8px 0 0 0',
     fontFamily: '"Nunito", sans-serif',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
 });

@@ -4,6 +4,8 @@ import { useTheme } from "../theme/ThemeContext";
 export interface ThemeToggleControlProps {
   /** Notified after each click */
   onThemeChange?: (theme: "light" | "dark") => void;
+  /** `inline` renders *just* the icon (for use inside view-toggle) */
+  inline?: boolean;
 }
 
 /**
@@ -12,6 +14,7 @@ export interface ThemeToggleControlProps {
  */
 const ThemeToggleControl: React.FC<ThemeToggleControlProps> = ({
   onThemeChange,
+  inline = false,
 }) => {
   const themeTokens = useTheme();
   /* ───────── state ───────── */
@@ -35,7 +38,39 @@ const ThemeToggleControl: React.FC<ThemeToggleControlProps> = ({
   const RAY_GAP      = 2;
   const MASK_RADIUS  = CORE_RADIUS + 1;
 
-  /* ───────── UI ───────── */
+  /* ---------------- inline  ---------------- */
+  if (inline) {
+    return (
+      <svg
+        width={VIEWBOX}
+        height={VIEWBOX}
+        viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
+        style={{ display: 'block' }}
+      >
+        {/*   … identical SVG content as below …  */}
+        {/* mask, rays, core discs using same vars */}
+        <mask id={`rayMask-${uid}`}><rect width="100%" height="100%" fill="#fff"/><circle cx={CENTER} cy={CENTER} r={MASK_RADIUS} fill="#000"/></mask>
+        <g mask={`url(#rayMask-${uid})`}
+           style={{ transformOrigin:`${CENTER}px ${CENTER}px`,
+                    transform: theme==="light"?"rotate(0deg) scale(1)":"rotate(45deg) scale(.55)",
+                    opacity: theme==="light"?1:0,
+                    transition:"opacity .18s ease-out, transform .5s cubic-bezier(.4,1.7,.6,1)"}}>
+          {Array.from({length:RAY_COUNT}).map((_,i)=>(
+            <rect key={i} x={CENTER-RAY_WID/2} y={CENTER-CORE_RADIUS-RAY_GAP-RAY_LEN}
+                  width={RAY_WID} height={RAY_LEN} rx={1} fill="currentColor"
+                  transform={`rotate(${(360/RAY_COUNT)*i} ${CENTER} ${CENTER})`} />
+          ))}
+        </g>
+        <circle cx={CENTER} cy={CENTER} r={CORE_RADIUS} fill="currentColor"
+                style={{opacity:theme==="light"?1:0,transition:"opacity .22s linear",
+                        filter:theme==="light"?"drop-shadow(0 0 6px rgba(255,255,255,.5))":"none"}}/>
+        <circle cx={CENTER} cy={CENTER} r={CORE_RADIUS} fill="none" stroke="currentColor" strokeWidth={2}
+                style={{opacity:theme==="light"?0:1,transition:"opacity .22s linear"}}/>
+      </svg>
+    );
+  }
+
+  /* -------------- default (floating) -------------- */
   return (
     <div
       style={{

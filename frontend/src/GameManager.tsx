@@ -23,6 +23,13 @@ export default function GameManager() {
   const [themeMode, setThemeMode] = useState<"light" | "dark">("light");
   const theme                     = getTheme(themeMode);
 
+  /* wipe default browser margin that caused a white border */
+  useLayoutEffect(() => {
+    document.body.style.margin = '0';
+    return () => { document.body.style.margin = ''; };
+  }, []);
+
+
   const [selIdx, setSelIdx]   = useState<number | null>(null);
   const [rowMode, setRowMode] = useState<1 | 2 >(1);     // allow 4 rows
   const [editTitle, setEditTitle] = useState("");
@@ -321,10 +328,12 @@ useLayoutEffect(()=>{
             </div>
           )}
         </div>
-        <span style={styles.dateTime}>{now.toLocaleString()}</span>
+        <span style={styles.dateTime}>
+           {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+         </span>
         {/* ───── View-toggle capsule ───── */}
         <div className="view-toggle" data-ui>
-          {[1, 2,].map((r) => (
+          {[1, 2].map((r) => (
             <button
               key={r}
               className={`seg ${rowMode === r ? 'active' : ''}`}
@@ -342,6 +351,19 @@ useLayoutEffect(()=>{
               />
             </button>
           ))}
+
+           {/* theme switch — uses same “seg” wrapper for matching style */}
+           <button
+             className="seg"
+             title="Toggle theme"
+             style={{ color: theme.text }}
+             onPointerUp={() => {
+               toggleTheme();
+               SoundManager.playUISelect();
+             }}
+           >
+             <ThemeToggleControl inline />
+           </button>
         </div>
       </div>
         <div style={{ ...styles.middle, height: SHELF_H }}>
@@ -390,7 +412,7 @@ useLayoutEffect(()=>{
           openEditForSelected();
         }}
       />
-      <ThemeToggleControl onThemeChange={setThemeMode}/>
+      {/* theme toggle moved into .view-toggle */}
     </div>
     </ThemeProvider>
   );
