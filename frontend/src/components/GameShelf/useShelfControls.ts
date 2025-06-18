@@ -16,7 +16,7 @@ export interface ShelfControlParams {
   revealWorld: React.MutableRefObject<number>;
   bounds: React.MutableRefObject<{ min: number; max: number }>;
   currentCenterIdx: React.MutableRefObject<number | null>;
-  rows: 1 | 2 | 4;
+  rows: 1 | 2;
   selectMesh: (mesh: THREE.Mesh | null, playSound?: boolean) => void;
   onSelect?: (idx: number | null) => void;
   onLongPress?: (idx: number) => void;

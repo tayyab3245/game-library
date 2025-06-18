@@ -11,6 +11,9 @@ const dark: Theme = {
   shadow: 'rgba(0,0,0,0.7)',
   glow: '0 0 8px rgba(255,255,255,0.4)',
   embossed: embossed('rgba(255,255,255,0.2)', 'rgba(0,0,0,0.6)'),
+  panelTop:  '#2e2e2e',
+  panelBot:  '#202020',
+  panelEdge: '#141414',
 };
 
 export default dark;

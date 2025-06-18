@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface GridIconProps {
-  mode: 1 | 2 | 4;
+  mode: 1 | 2 ;
   filled?: boolean;
   size?: number;
 }
@@ -11,12 +11,11 @@ const GridIcon: React.FC<GridIconProps> = ({ mode, filled = false, size = 48 }) 
   const strokeColor = 'currentColor';
   const fillColor   = filled ? 'currentColor' : 'transparent';
   const strokeWidth = filled ? 1.2 : 1.25;
-  const scaledStroke = mode === 4 ? strokeWidth * 0.9 : strokeWidth;
+
 
   const spacingMap = {
     1: { count: 1, spacing: 0, padding: 4 },
     2: { count: 2, spacing: 6, padding: 4 },
-    4: { count: 4, spacing: 3, padding: 2 }, // tighter padding for a bolder icon
   };
 
 
@@ -24,7 +23,7 @@ const GridIcon: React.FC<GridIconProps> = ({ mode, filled = false, size = 48 }) 
   const totalSpacing = spacing * (count - 1);
 
   const boxSize = (size - totalSpacing - padding * 2) / count;
-    const radius = mode === 4 ? boxSize * 0.15 : boxSize * 0.25;
+  const radius = mode === 2 ? boxSize * 0.15 : boxSize * 0.25;
 
   const offset = padding;
 
@@ -50,7 +49,6 @@ const GridIcon: React.FC<GridIconProps> = ({ mode, filled = false, size = 48 }) 
           ry={radius}
           fill={fillColor}
           stroke={strokeColor}
-          strokeWidth={scaledStroke}
           shapeRendering="geometricPrecision"
           style={{
             transition: 'all 0.2s ease',

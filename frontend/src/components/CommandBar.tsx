@@ -14,8 +14,8 @@ export interface CommandBarProps {
 /* ──────────── design tokens ──────────── */
 const tokens = (t: ReturnType<typeof useTheme>) => ({
   // derive a light + dark ramp from the current panel colour
-  top: `color-mix(in srgb,${t.surface} 15%,white)`,
-  bot: `color-mix(in srgb,${t.surface} 80%,black)`,
+  top: t.panelTop,
+  bot: t.panelBot,
   gloss: "linear-gradient(-35deg,rgba(255,255,255,.07) 0%,transparent 60%)",
   depth:
     `0 .05em .05em -.01em rgba(5,5,5,1),

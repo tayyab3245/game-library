@@ -27,12 +27,10 @@ export const getStyles = (t: Theme): StyleMap => ({
     minHeight: 120,
     padding: '20px 32px 40px 32px',
     borderRadius: '0 0 48px 48px',
-    /* same glossy highlight on top, but derive the ramp from t.surface */
-    background:
-      `linear-gradient(-35deg,rgba(255,255,255,.07) 0%,transparent 60%),` +
-      `linear-gradient(180deg,
-        color-mix(in srgb,${t.surface} 15%,white) 0%,
-        color-mix(in srgb,${t.surface} 80%,black) 100%)`,
+     /* same glossy highlight on top, but now derive the ramp from panel* tokens */
+     background:
+       `linear-gradient(-35deg,rgba(255,255,255,.07) 0%,transparent 60%),` +
+       `linear-gradient(180deg,${t.panelTop} 0%,${t.panelBot} 100%)`,
     backgroundBlendMode: 'soft-light',
     /* reuse the global shadow token so dark & light match */
     boxShadow: t.shadow,

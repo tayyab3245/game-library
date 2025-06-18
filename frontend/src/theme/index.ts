@@ -12,6 +12,10 @@ export interface Theme {
   shadow: string;
   glow: string;
   embossed: string;
+  /* plastic-panel ramps */
+  panelTop: string;   // lightest tint
+  panelBot: string;   // darkest tint
+  panelEdge: string;  // 1 px rim / outline
 }
 
 export const getTheme = (mode: ThemeMode): Theme =>

@@ -6,9 +6,9 @@ export const shellStyle = (t: Theme): React.CSSProperties => ({
   top: 0,
   bottom: '16px', // move bottom edge upward
   borderRadius: 40,
-  background: `linear-gradient(180deg, color-mix(in srgb,${t.surface} 20%,white) 0%, ${t.surface} 100%)`,
+  background: `linear-gradient(180deg,${t.panelTop} 0%,${t.panelBot} 100%)`,
   boxShadow: t.shadow,
-  borderBottom: `6px solid color-mix(in srgb,${t.surface} 60%,black)`,
+  borderBottom: `6px solid ${t.panelEdge}`,
   transition: 'transform 0.3s ease-out',
   pointerEvents: 'none',
   zIndex: -1,
@@ -22,8 +22,8 @@ export const getArrowCSS = (t: Theme) => `
     width: 72px;
     height: 72px;
     background:
-      linear-gradient(-35deg, rgba(255,255,255,0.07) 0%, transparent 60%),
-      linear-gradient(180deg, color-mix(in srgb,${t.surface} 10%,white) 0%, ${t.surface} 100%);
+       linear-gradient(-35deg, rgba(255,255,255,0.07) 0%, transparent 60%),
+       linear-gradient(180deg,${t.panelTop} 0%,${t.panelBot} 100%);
     box-shadow:
       inset 0 2px 3px rgba(255,255,255,0.08),
       inset 0 -1px 2px rgba(0,0,0,0.4),
@@ -64,8 +64,8 @@ export const getArrowCSS = (t: Theme) => `
   .shelf-arrow:hover {
     transform: translateY(-50%) scale(1.05);
     background:
-      linear-gradient(-35deg, rgba(255,255,255,0.12) 0%, transparent 60%),
-      linear-gradient(180deg, color-mix(in srgb,${t.surface} 25%,white) 0%, color-mix(in srgb,${t.surface} 80%,black) 100%);
+       linear-gradient(-35deg, rgba(255,255,255,0.12) 0%, transparent 60%),
+       linear-gradient(180deg,${t.panelTop} 0%,color-mix(in srgb,${t.panelBot} 80%,black) 100%);
     box-shadow:
       inset 0 2px 3px rgba(255,255,255,0.1),
       inset 0 -1px 2px rgba(0,0,0,0.5),

@@ -32,7 +32,7 @@ export interface GameShelfProps {
   frontHeightUnits?: number;  
   onSelect?: (idx: number | null) => void;  
   onLongPress?: (idx: number) => void;       
-  rows?: 1 | 2 | 4;            // 1 / 2 / 4 rows
+  rows?: 1 | 2 ;            // 1 / 2 / 4 rows
 }
   
 const GameShelf: React.FC<GameShelfProps> = ({
@@ -85,7 +85,7 @@ const theme = useTheme();
   const same = (a: string[], b: string[]) =>
     a.length === b.length && a.every((v, i) => v === b[i]);
   /* remember the last rows value */
-  const prevRows = useRef<1 | 2 | 4>(rows);
+  const prevRows = useRef<1 | 2 >(rows);
   // track which mesh is currently centred so we know when to “click”-advance
   const currentCenterIdx = useRef<number | null>(null);
   /* background shell behind the shelf */
@@ -295,19 +295,23 @@ const theme = useTheme();
           shape.lineTo(-sw/2, -sh/2 + radius);
           shape.quadraticCurveTo(-sw/2, -sh/2, -sw/2 + radius, -sh/2);
           const shadowGeo = new THREE.ShapeGeometry(shape);
+          /* ---------- drop-shadow panel (separate object) ---------- */
           const shadow = new THREE.Mesh(
             shadowGeo,
             new THREE.MeshBasicMaterial({
-              color: 0xffffff,
-              opacity: 0.04, // slightly lower opacity for a subtler effect
+              color: new THREE.Color(theme.panelBot).convertSRGBToLinear(),
+              opacity: 0.22,          // subtle grey
               transparent: true,
               side: THREE.DoubleSide,
-              depthWrite: false, // disable depth write for a softer shadow appearance
-            })
+              depthWrite: false,      // don’t *write* Z, so it stays soft
+              depthTest : true,       // DO read Z – lets the cover over-paint
+            }),
           );
-          shadow.rotation.y = Math.PI;
-          mesh.userData.shadow = shadow;
-          shelf.current.add(shadow);
+           shadow.rotation.y = Math.PI;                     // face camera
+           shadow.renderOrder = -1;              // draw before the case
+           /* Z-offset is applied in the layout pass so X/Y can follow grid */
+           shelf.current.add(shadow);                       // keep independent
+           mesh.userData.shadow = shadow;
           // create corner brackets (four "L" shapes) around shadow
           const bracketGroup = new THREE.Group();
           const bracketLength = Math.min(sw, sh) * 0.2;
@@ -341,9 +345,9 @@ const theme = useTheme();
           bracketGroup.add(makeBracket(sw / 2, -sh / 2));  // bottom-right
           bracketGroup.add(makeBracket(sw / 2, sh / 2));   // top-right
           bracketGroup.add(makeBracket(-sw / 2, sh / 2));  // top-left
-          bracketGroup.visible = false;
-          mesh.userData.outline = bracketGroup;
-          shelf.current.add(bracketGroup);
+           bracketGroup.visible = false;
+           shelf.current.add(bracketGroup);                  // independent
+           mesh.userData.outline = bracketGroup;
           }                             /* ← end !isAdd */
         }
 
@@ -385,10 +389,10 @@ const theme = useTheme();
             shape.lineTo(-sw / 2, -sh / 2 + radius);
             shape.quadraticCurveTo(-sw / 2, -sh / 2, -sw / 2 + radius, -sh / 2);
             const shadowGeo = new THREE.ShapeGeometry(shape);
-            const shadow = new THREE.Mesh(
-              shadowGeo,
-              new THREE.MeshBasicMaterial({
-                color: 0xffffff,
+             const shadow = new THREE.Mesh(
+               shadowGeo,
+               new THREE.MeshBasicMaterial({
+                 color: new THREE.Color(theme.panelBot).convertSRGBToLinear(),
                 opacity: 0.05,
                 transparent: true,
                 side: THREE.DoubleSide,
@@ -504,17 +508,19 @@ const theme = useTheme();
 
       m.position.set(x, y, 0);
       m.userData.homeY = y;
-
       if (!m.userData.isAdd && m.userData.shadow && m.userData.outline) {
-        const z = (m.userData.actualDepth as number) / 2 + 0.01;
-        m.userData.shadow.position.set(x, y, z);
-        m.userData.outline.position.set(x, y, z);
-        m.userData.outline.visible = selectedRef.current === m;
-      }
+         /* front & back planes */
+         const zFront =  (m.userData.actualDepth as number) / 2 + 0.01;  // brackets
+         const zBack  = -(m.userData.actualDepth as number) / 2 - 0.6;   // shadow (push ~0.6 wu back)
+
+         m.userData.shadow.position.set(x, y, zBack);
+         m.userData.outline.position.set(x, y, zFront);
+         m.userData.outline.visible = selectedRef.current === m;
+       }
+
     });
     /* ------------ update camera Z so every grid fits on screen ----------- */
-    camera.current.position.z = BOX_H *
-      (rows === 1 ? 3.6 : rows === 2 ? 6.8 : 12.0);
+    camera.current.position.z = BOX_H * (rows === 1 ? 3.6 : 6.8);
 
     /* pan limits: first & last columns can be centred */
     bounds.current.min = -((cols - 1) / 2) * (itemW + gapX) - padLeft;

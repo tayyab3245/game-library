@@ -24,7 +24,7 @@ export default function GameManager() {
   const theme                     = getTheme(themeMode);
 
   const [selIdx, setSelIdx]   = useState<number | null>(null);
-  const [rowMode, setRowMode] = useState<1 | 2 | 4>(1);     // allow 4 rows
+  const [rowMode, setRowMode] = useState<1 | 2 >(1);     // allow 4 rows
   const [editTitle, setEditTitle] = useState("");
   const [updating, setUpdating] = useState(false);
   const [flashOk, setFlashOk] = useState(false);
@@ -179,8 +179,9 @@ export default function GameManager() {
   const canLaunch   = !!selGame && romExists && emuExists;
   /* ───────── inject 3DS-style capsule CSS once ───────── */
 useLayoutEffect(()=>{
-  const top = `color-mix(in srgb,${theme.surface} 15%,white)`;
-  const bot = `color-mix(in srgb,${theme.surface} 80%,black)`;
+  /* pull ready-made ramp colours from the current theme */
+  const top = theme.panelTop;
+  const bot = theme.panelBot;
   const s=document.createElement('style');s.innerHTML=`
 .view-toggle {
   position: absolute;
@@ -323,19 +324,19 @@ useLayoutEffect(()=>{
         <span style={styles.dateTime}>{now.toLocaleString()}</span>
         {/* ───── View-toggle capsule ───── */}
         <div className="view-toggle" data-ui>
-          {[1, 2, 4].map((r) => (
+          {[1, 2,].map((r) => (
             <button
               key={r}
               className={`seg ${rowMode === r ? 'active' : ''}`}
               title={`${r === 1 ? 'Single' : r === 2 ? 'Double' : 'Quad'} row`}
               style={{ color: theme.text }}       // NEW – lets GridIcon inherit
               onPointerUp={() => {
-                setRowMode(r as 1 | 2 | 4);
+                setRowMode(r as 1 | 2 );
                 SoundManager.playUISelect();
               }}
             >
               <GridIcon
-                mode={r as 1 | 2 | 4}
+                mode={r as 1 | 2}
                 filled={rowMode === r}
                 size={24}
               />
