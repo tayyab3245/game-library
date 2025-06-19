@@ -83,6 +83,47 @@ const theme = useTheme();
   const prevRows = useRef<1 | 2 >(rows);
   // track which mesh is currently centred so we know when to “click”-advance
   const currentCenterIdx = useRef<number | null>(null);
+
+  /* ────────────────────────────────────────────────────────────
+   * attachOutline — build four beveled corner-brackets and
+   * parent them to `mesh` so they automatically track scale /
+   * rotation.  Size is uniform across every cover.
+   * ──────────────────────────────────────────────────────────── */
+  const attachOutline = (
+    mesh: THREE.Mesh,
+    boxW: number,
+    boxH: number,
+    boxD: number,
+    colour = 0xffc14d,
+  ) => {
+    if (mesh.userData.outline) return;          // already attached
+
+    const group  = new THREE.Group();
+    const len    = Math.min(boxW, boxH) * 0.18; // slimmer, uniform size
+    const thick  = len * 0.30;                  // bar thickness
+    const bevel  = thick * 0.6;                 // nice rounding
+    const barGeo = (w: number, h: number) =>
+      new RoundedBoxGeometry(w, h, boxD * 0.02, 4, bevel);
+    const mat = new THREE.MeshBasicMaterial({ color: colour });
+
+    const addCorner = (cx: number, cy: number, dx: number, dy: number) => {
+      const h = new THREE.Mesh(barGeo(len,  thick), mat);
+      const v = new THREE.Mesh(barGeo(thick, len ), mat);
+      h.position.set(cx + dx * len / 2, cy, 0);
+      v.position.set(cx,                cy + dy * len / 2, 0);
+      group.add(h, v);
+    };
+
+    addCorner(-boxW/2, -boxH/2,  1,  1);   // bottom-left
+    addCorner( boxW/2, -boxH/2, -1,  1);   // bottom-right
+    addCorner( boxW/2,  boxH/2, -1, -1);   // top-right
+    addCorner(-boxW/2,  boxH/2,  1, -1);   // top-left
+
+    group.visible = false;                  // only the selected cover shows it
+    /* mount on shelf so it never inherits cover rotation/scale */
+    shelf.current.add(group);
+    mesh.userData.outline = group;
+  };
   /* ── guarantee an initial selection once meshes exist ── */
   useLayoutEffect(() => {
     if (!selectedRef.current && meshes.current.length) {
@@ -114,7 +155,7 @@ const theme = useTheme();
     }
   // mark new
   // Use the base scale (you can tweak this multiplier if you want a bigger “pop”)
-  const selectedScale = LAYOUT[rows].scale;
+  const selectedScale = LAYOUT[rows].scale * 1.05; // subtle pop
     mesh.scale.set(selectedScale, selectedScale, selectedScale);
     const outline = mesh.userData.outline as THREE.Object3D;
     if (outline) outline.visible = true;
@@ -141,7 +182,9 @@ const theme = useTheme();
   const BOX_H = BOX_W  * PANEL_RATIO;
 
   /* base hover – row-scale is applied in the render-loop */
-  const HOVER_BASE = BOX_H * 0.03;
+  const HOVER_BASE = BOX_H * 0.02;
+  /* subtle breathing for the focus frame */
+  const OUTLINE_BREATHE = 0.09;      // ±7 % scale
 
      const { startHold, stopHold, attach } = useShelfControls({
     container,
@@ -214,6 +257,12 @@ const theme = useTheme();
         m.position.y = (m.userData.homeY || 0) +
          Math.sin(t * 1.2 + ph) * (HOVER_BASE * LAYOUT[rows].scale);
       });
+       /* ——— Nintendo-style breathing corners ——— */
+       if (selectedRef.current && selectedRef.current.userData.outline) {
+         const g = selectedRef.current.userData.outline as THREE.Object3D;
+         const s = 1 + Math.sin(t * 4.8) * OUTLINE_BREATHE;  // ~3 cycles / sec
+         g.scale.set(s, s, s);
+        }
       renderer.current.render(scene.current, camera.current);
     };
     renderLoop();
@@ -336,44 +385,9 @@ const theme = useTheme();
           /* leave padding all-round */
           mesh.userData.padding = bevelRadius * 2;
           if (!isAdd) {
-          // create corner brackets (four "L" shapes) around shadow
-          const sw = boxW * 1.6 * 0.75, sh = boxH * 1.6 * 0.75;
-          const bracketGroup = new THREE.Group();
-          const bracketLength = Math.min(sw, sh) * 0.2;
-          const mat = new THREE.LineBasicMaterial({ color: 0xffa500 });
-
-          // helper to create a thick, inward-pointing "L" at given corner
-          const makeBracket = (cx: number, cy: number) => {
-            const dirX = cx < 0 ? 1 : -1;
-            const dirY = cy < 0 ? 1 : -1;
-            const thickness = bracketLength * 0.2;
-            const depth = thickness; // small Z-depth for visibility
-            const group = new THREE.Group();
-
-            // Horizontal segment
-            const geomH = new RoundedBoxGeometry(bracketLength, thickness, depth, 4, thickness * 0.4);
-            const meshH = new THREE.Mesh(geomH, new THREE.MeshBasicMaterial({ color: 0xffa500 }));
-            meshH.position.set(cx + (dirX * bracketLength) / 2, cy, 0);
-            group.add(meshH);
-
-            // Vertical segment
-            const geomV = new RoundedBoxGeometry(thickness, bracketLength, depth, 4, thickness * 0.4);
-            const meshV = new THREE.Mesh(geomV, new THREE.MeshBasicMaterial({ color: 0xffa500 }));
-            meshV.position.set(cx, cy + (dirY * bracketLength) / 2, 0);
-            group.add(meshV);
-
-            return group;
-          };
-
-          // corners: (±sw/2, ±sh/2)
-          bracketGroup.add(makeBracket(-sw / 2, -sh / 2)); // bottom-left
-          bracketGroup.add(makeBracket(sw / 2, -sh / 2));  // bottom-right
-          bracketGroup.add(makeBracket(sw / 2, sh / 2));   // top-right
-          bracketGroup.add(makeBracket(-sw / 2, sh / 2));  // top-left
-           bracketGroup.visible = false;
-           shelf.current.add(bracketGroup);                  // independent
-           mesh.userData.outline = bracketGroup;
-          }                             /* ← end !isAdd */
+            /* draw frame 10 % inside the edge (uniform for all covers) */
+            attachOutline(mesh, boxW * 1.0, boxH * 1.0, boxD);
+          }
         }
 
         // Now mesh points to our box; next we’ll update its material (if needed),
@@ -407,12 +421,15 @@ const theme = useTheme();
            */
          /* “+” → real cover */
          if (wasAdd && !isAdd) {
-           disposeMaterial(mesh.material);                // 🔑 wipe old mats
+           disposeMaterial(mesh.material);                
            mesh.material = new THREE.MeshBasicMaterial({  // temp grey
              color: 0x444444,
            });
-           loadWithRetry(url, mesh);                      // 🔑 actually load!
-           selectMesh(mesh, false);                       // pop into focus
+           loadWithRetry(url, mesh);
+           /* keep identical inset when a “+” cube becomes a real cover */
+           attachOutline(mesh, boxW * 0.9, boxH * 0.9, boxD);
+           mesh.userData.outline.visible = true;
+           selectMesh(mesh, false);
          }
            /* real → add  ➜  remove old brackets */
            if (!wasAdd && isAdd) {
