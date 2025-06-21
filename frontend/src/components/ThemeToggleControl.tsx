@@ -28,7 +28,7 @@ const ThemeToggleControl: React.FC<ThemeToggleControlProps> = ({
 
   /* ─── SVG constants ─── */
   const uid = useId();
-  const VIEWBOX = 40;
+  const VIEWBOX = 30;
   const CENTER = VIEWBOX / 2;
   const CORE_RADIUS = 8;
   const RAY_COUNT = 8;

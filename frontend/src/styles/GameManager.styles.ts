@@ -116,7 +116,7 @@ export const getStyles = (t: Theme): StyleMap => ({
   gameTitle: {
     color: t.text,
     fontSize: 28,
-    fontWeight: 600,
+    fontWeight: 900,
     textAlign: 'center',
     margin: '8px 0 0 0',
     fontFamily: '"Nunito", sans-serif',

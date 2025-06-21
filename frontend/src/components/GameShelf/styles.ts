@@ -7,12 +7,22 @@ export const shellStyle = (t: Theme): React.CSSProperties => ({
   top: 0,
   bottom: '96px',          // leave breathing-room above CommandBar
   borderRadius: 40,
-  background: `linear-gradient(180deg, ${t.panelTop} 0%, ${t.panelBot} 100%)`,
-  boxShadow: t.shadow,
-  borderBottom: `6px solid ${t.panelEdge}`,
-  transition: 'transform 0.25s ease-out',  /* keep in sync with TIMINGS.snap */
+  // stronger plastic-panel gradient
+  background: `linear-gradient(180deg, ${t.panelTop} 0%, ${t.panelBot} 95%)`,
   pointerEvents: 'none',
   zIndex: -1,
+
+  //  ───────── lift off the page ─────────
+  boxShadow:
+    t.mode === 'light'
+      // inset highlight + drop-shadow for light mode
+      ? 'inset 0 4px 6px rgba(255,255,255,0.6), 0 8px 16px rgba(0,0,0,0.1)'
+      // keep existing dark-mode shadow
+      : t.shadow,
+
+  // beef up the bottom rim “lip”
+  borderBottom: `6px solid ${t.panelEdge}`,
+  transition: 'transform 0.25s ease-out',
 });
 
 export const getArrowCSS = (t: Theme) => `
@@ -28,7 +38,7 @@ export const getArrowCSS = (t: Theme) => `
   /* ——— circular arrow button ——— */
   .shelf-arrow {
     position: absolute;
-    top: 50%;
+    top: 60%;
     transform: translateY(-50%);
     width: 72px;
     height: 72px;
@@ -39,10 +49,11 @@ export const getArrowCSS = (t: Theme) => `
     background:
       linear-gradient(-35deg, rgba(255,255,255,0.07) 0%, transparent 60%),
       linear-gradient(180deg, ${t.panelTop} 0%, ${t.panelBot} 100%);
+    /* apply same elevated style as shell */
     box-shadow:
-      inset 0 2px 3px rgba(255,255,255,0.08),
-      inset 0 -1px 2px rgba(0,0,0,0.40),
-      0 6px 12px rgba(0,0,0,0.30);
+      ${t.mode === 'light'
+        ? 'inset 0 4px 6px rgba(255,255,255,0.6), 0 8px 16px rgba(0,0,0,0.1)'
+        : 'inset 0 2px 3px rgba(255,255,255,0.08), inset 0 -1px 2px rgba(0,0,0,0.40), 0 6px 12px rgba(0,0,0,0.30)'};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -95,6 +106,6 @@ export const getArrowCSS = (t: Theme) => `
   }
 
   /* placement */
-  .shelf-arrow.left  { left: 24px; top: 60%; }
-  .shelf-arrow.right { right: 24px; top: 60%; }
+  .shelf-arrow.left  { left: 24px; }
+  .shelf-arrow.right { right: 24px; }
 `;

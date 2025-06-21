@@ -108,12 +108,13 @@ const CommandBar: React.FC<CommandBarProps> = ({
 /* ───── SEGMENTS (Launch | Edit) ──────────────────────────── */
 .command-bar .seg{
   position:relative; border:none; background:transparent;
-  font:700 ${tokensInst.fontSize}px/1 "Press Start 2P", sans-serif;
-  color:${tokensInst.txt}; text-transform:uppercase; letter-spacing:.5px;
-  /* use theme-provided glow so it auto-switches light⇄dark */
+  font:1000 ${tokensInst.fontSize}px/1 "Nunito", sans-serif;
+  letter-spacing: .4px;
+  /* subtler 3-D emboss that matches header */
   text-shadow:
-    0 -1px 1px ${tokensInst.text3d.dark},
-    0 1px 1px ${tokensInst.text3d.light},
+    0 -1px 0 ${tokensInst.text3d.dark},
+    0  1px 1px ${tokensInst.text3d.light};
+  color:${tokensInst.txt}; text-transform:uppercase; letter-spacing:.5px;
   display:flex; align-items:center; justify-content:center;
   cursor:pointer; user-select:none;
   transition:filter .12s, transform .12s;

@@ -340,7 +340,6 @@ const theme = useTheme();
         undefined,
         () => {
           if (tries < maxTries) {
-            /* eslint-disable-next-line @typescript-eslint/no-misused-promises */
             setTimeout(() => loadWithRetry(url, mesh, tries + 1), delay);
           } else {
             mesh.material = new THREE.MeshBasicMaterial({ color: 0x555555 });
