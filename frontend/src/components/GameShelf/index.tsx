@@ -630,12 +630,28 @@ const theme = useTheme();
       <div ref={shellDiv} style={shellStyle(theme)} />
       <div
         className="shelf-arrow left"
+        onPointerDown={(e: React.PointerEvent<HTMLDivElement>) => {
+          const el = e.currentTarget as HTMLElement;
+          el.classList.add('bounce');
+        }}
+        onAnimationEnd={(e: React.AnimationEvent<HTMLDivElement>) => {
+          const el = e.currentTarget as HTMLElement;
+          el.classList.remove('bounce');
+        }}
         onMouseDown={() => startHold(-1)}
         onMouseUp={stopHold}
         onMouseLeave={stopHold}
       />
       <div
         className="shelf-arrow right"
+        onPointerDown={(e: React.PointerEvent<HTMLDivElement>) => {
+          const el = e.currentTarget as HTMLElement;
+          el.classList.add('bounce');
+        }}
+        onAnimationEnd={(e: React.AnimationEvent<HTMLDivElement>) => {
+          const el = e.currentTarget as HTMLElement;
+          el.classList.remove('bounce');
+        }}
         onMouseDown={() => startHold(1)}
         onMouseUp={stopHold}
         onMouseLeave={stopHold}

@@ -16,6 +16,15 @@ export const shellStyle = (t: Theme): React.CSSProperties => ({
 });
 
 export const getArrowCSS = (t: Theme) => `
+  /* ─── bounce keyframes ─── */
+  @keyframes arrowBounce {
+    0%   { transform: translateY(-50%) scale(1); }
+    30%  { transform: translateY(-50%) scale(1.2); }
+    50%  { transform: translateY(-50%) scale(0.9); }
+    70%  { transform: translateY(-50%) scale(1.05); }
+    100% { transform: translateY(-50%) scale(1); }
+  }
+
   /* ——— circular arrow button ——— */
   .shelf-arrow {
     position: absolute;
@@ -38,15 +47,17 @@ export const getArrowCSS = (t: Theme) => `
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(1.5px);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    outline: none;
+    animation-fill-mode: forwards;
   }
 
-  /* flat on hover – Nintendo UI stays calm */
+  /* no hover effect – Nintendo UI stays calm */
   .shelf-arrow:hover { }
 
-  /* press-in effect */
-  .shelf-arrow:active {
-    transform: translateY(-50%) scale(1.04);
+  /* pressing or keyboard‐focus triggers full bounce */
+  .shelf-arrow.bounce {
+    animation: arrowBounce 0.4s ease-out forwards;
     box-shadow:
       inset 0 1px 2px rgba(255,255,255,0.15),
       inset 0 -1px 2px rgba(0,0,0,0.45),
@@ -64,10 +75,10 @@ export const getArrowCSS = (t: Theme) => `
     height: 26px;          /* arm length */
     background: ${t.text};
     border-radius: 4px;
-    transform-origin: 0 50%;   /* pivot from LEFT centre */
+    transform-origin: 0 50%;   /* pivot from left-middle */
   }
 
-  /* RIGHT “>” ---------------------------------------------------- */
+  /* RIGHT “>” */
   .shelf-arrow.right::before {
     transform: translate(3px, -15%) rotate(45deg);
   }
@@ -75,7 +86,7 @@ export const getArrowCSS = (t: Theme) => `
     transform: translate(3px, -50%) rotate(-45deg);
   }
 
-  /* LEFT “<” ---------------------------------------------------- */
+  /* LEFT “<” */
   .shelf-arrow.left::before {
     transform: translate(7px, -15%) rotate(135deg);
   }
@@ -84,6 +95,6 @@ export const getArrowCSS = (t: Theme) => `
   }
 
   /* placement */
-  .shelf-arrow.left  { left: 24px; }
-  .shelf-arrow.right { right: 24px; }
+  .shelf-arrow.left  { left: 24px; top: 60%; }
+  .shelf-arrow.right { right: 24px; top: 60%; }
 `;

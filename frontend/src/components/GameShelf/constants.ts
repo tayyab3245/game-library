@@ -14,6 +14,6 @@ export const PANEL_RATIO   = 4.875 / 5.875;
 export const OVERSCROLL_DAMP = 0.15;          
 
 export const LAYOUT = {
-  1: { scale: 0.75, gapX: 0.65, gapY: 0.9,  padTop: 0.5, padBottom: 0.5, padLeft: 0.15, padRight: 0.15 },
-  2: { scale: 0.50, gapX: 2.10, gapY: 3.10, padTop: 0.3, padBottom: 0.3, padLeft: 0.25, padRight: 0.25 },
+  1: { scale: 0.90, gapX: 0.05, gapY: 0.05,  padTop: 0.5, padBottom: 0.05, padLeft: 0.05, padRight: 0.05 },
+  2: { scale: 0.90, gapX: 0.05, gapY: 0.05, padTop: 0.3, padBottom: 0.1, padLeft: 0.05, padRight: 0.25 },
 } as const;
