@@ -25,6 +25,8 @@ const tokens = (t: ReturnType<typeof useTheme>) => ({
   dividerHi: "rgba(255,255,255,.17)",
   dividerLo: "rgba(0,0,0,.60)",
   txtGlow: "0 0 4px rgba(0,160,255,.65)",
+  textPressLight: "rgba(0,0,0,0.6)",
+  textPressDark:  "rgba(255,255,255,0.2)",
   txt: t.text,                 // <-- NEW
   /* brighter seam */
   dividerGlow: "0 0 6px rgba(255,255,255,.40)",
@@ -108,10 +110,10 @@ const CommandBar: React.FC<CommandBarProps> = ({
   position:relative; border:none; background:transparent;
   font:700 ${tokensInst.fontSize}px/1 "Press Start 2P", sans-serif;
   color:${tokensInst.txt}; text-transform:uppercase; letter-spacing:.5px;
-  text-shadow: 
+  /* use theme-provided glow so it auto-switches light⇄dark */
+  text-shadow:
     0 -1px 1px ${tokensInst.text3d.dark},
     0 1px 1px ${tokensInst.text3d.light},
-    ${tokensInst.txtGlow};
   display:flex; align-items:center; justify-content:center;
   cursor:pointer; user-select:none;
   transition:filter .12s, transform .12s;
@@ -156,10 +158,19 @@ const CommandBar: React.FC<CommandBarProps> = ({
 /* active push + darken */
 .command-bar .seg:active{
   transform:translateY(.07em);
-  color: rgba(255,255,255,0.85);
-  text-shadow: 
-    0 -1px 1px ${tokensInst.text3d.pressed},
-    0 1px 0 ${tokensInst.text3d.light};
+  /* make pressed text dark in light mode, or light in dark mode */
+  color: ${tokensInst.txt};
+  text-shadow:
+    -1px -1px 0 ${
+      theme.mode === "light" 
+        ? tokensInst.textPressLight 
+        : tokensInst.text3d.light
+    },
+    1px 1px 0  ${
+      theme.mode === "light" 
+        ? tokensInst.textPressDark 
+        : tokensInst.text3d.dark
+    };
   background: linear-gradient(180deg,${tokensInst.bot} 0%,${tokensInst.top} 100%);
   box-shadow: 
     inset 0 2px 5px ${tokensInst.insetShadow},
