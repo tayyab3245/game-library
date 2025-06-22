@@ -784,7 +784,7 @@ const theme = useTheme();
       });
     }
     /* ------------ update camera Z so every grid fits on screen ----------- */
-    camera.current.position.z = BOX_H * (rows === 1 ? 3.6 : 6.8);
+    camera.current.position.z = BOX_H * (rows === 1 ? 5.4 : 6.8);
 
     /* pan limits: first & last columns can be centred */
     bounds.current.min = -((cols - 1) / 2) * (itemW + gapX) - padLeft;
@@ -817,10 +817,17 @@ const theme = useTheme();
     /* keep selection centred after row-switch */
     if (rowSwitch) {
       if (selectedRef.current) {
-        // Only update shelfTargetX.current instantly on row switch
-        const targetX = -selectedRef.current.position.x;
-        shelfTargetX.current = clamp(targetX, bounds.current.min, bounds.current.max);
+        // Find the index of the currently selected mesh
+        const selectedIndex = meshes.current.indexOf(selectedRef.current);
+        if (selectedIndex !== -1) {
+          // Get the NEW target position from our calculated layout
+          const newTargetPosition = layoutTargets[selectedIndex].position;
+          const targetX = -newTargetPosition.x;
+          // Set the shelf's target to center on the new position
+          shelfTargetX.current = clamp(targetX, bounds.current.min, bounds.current.max);
+        }
       } else {
+        // If there's no selection, just ensure the current target is within the new bounds
         shelfTargetX.current = clamp(
           shelfTargetX.current,
           bounds.current.min,

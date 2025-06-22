@@ -231,15 +231,12 @@ export default function useShelfControls(opts: ShelfControlParams) {
         opts.selectedRef.current.rotation.y += dx * 0.012;
       } else if (mode === 'pan') {
         const newShelfX = opts.shelf.current.position.x + dx * 0.015;
-        const clamped = clamp(newShelfX, opts.bounds.current.min, opts.bounds.current.max);
-        opts.shelf.current.position.x = clamped;
+        const clampedX = clamp(newShelfX, opts.bounds.current.min, opts.bounds.current.max);
+        opts.shelf.current.position.x = clampedX;
 
-        const overscroll = newShelfX - clamped;
-        const capped = clamp(overscroll, -opts.revealWorld.current, opts.revealWorld.current);
-        const shellX = clamped + capped * OVERSCROLL_DAMP;
-
+        // Make the shell follow the shelf EXACTLY, removing the overscroll effect.
         if (opts.shellDiv.current) {
-          opts.shellDiv.current.style.transform = `translateX(${shellX * opts.pxPerWorld.current}px)`;
+          opts.shellDiv.current.style.transform = `translateX(${clampedX * opts.pxPerWorld.current}px)`;
         }
 
         // 2D-aware selection logic
@@ -257,10 +254,6 @@ export default function useShelfControls(opts: ShelfControlParams) {
     const onPointerUp = () => {
       dragging = false;
       cancelLong();
-
-      if (mode === 'pan' && opts.shellDiv.current) {
-        opts.shellDiv.current.style.transform = `translateX(${opts.shelf.current.position.x * opts.pxPerWorld.current}px)`;
-      }
 
       if (mode === 'pan') {
         // 2D-aware selection logic
