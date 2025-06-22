@@ -85,6 +85,7 @@ const theme = useTheme();
   const prevRows = useRef<1 | 2 >(rows);
   // track which mesh is currently centred so we know when to “click”-advance
   const currentCenterIdx = useRef<number | null>(null);
+  const clock = useRef<THREE.Clock>(new THREE.Clock()); // <-- ADD THIS LINE
 
   /* ────────────────────────────────────────────────────────────
    * attachOutline — build four beveled corner-brackets and
@@ -222,7 +223,9 @@ const theme = useTheme();
   const SELECTOR_SCALE = 0.22;   // Overall size of the brackets (0.22 = 22% of the cover's smallest dimension)
   const SELECTOR_PADDING = 0.05; // Gap between the game cover and the brackets' inner edge
   const BREATHE_DISTANCE = 0.04; // How far the brackets move during the animation
-  const PAN_DAMPING = 0.01; // <-- Controls animation speed. Lower is slower/smoother
+  const PAN_DAMPING = 0.01;
+  const GRID_ANIM_DURATION = 0.5; // Duration of the sorting animation in seconds
+  const GRID_ANIM_HEIGHT = 0.4;   // How high/low the items dance
 
   const { startHold, stopHold, attach } = useShelfControls({
     container,
@@ -286,37 +289,48 @@ const theme = useTheme();
 
     /* Hover animation loop */
     let stopAnimation = false;
-    const clock = new THREE.Clock();
     const renderLoop = () => {
       if (stopAnimation) return;
       requestAnimationFrame(renderLoop);
-      const t = clock.getElapsedTime();
-      meshes.current.forEach(m => {
-        const ph = m.userData.ph as number;
-        m.position.y = (m.userData.homeY || 0) +
-         Math.sin(t * 1.2 + ph) * (HOVER_BASE * LAYOUT[rows].scale);
+      const t = clock.current.getElapsedTime();
+
+      // --- 1. NEW: Grid Transition Animation ---
+      meshes.current.forEach((m) => {
+        const anim = m.userData.gridAnimation;
+        if (anim?.isTransitioning) {
+          const progress = clamp((t - anim.startTime) / GRID_ANIM_DURATION, 0, 1);
+          // Create the "up and down" hump using a sine wave
+          const hump = anim.direction * Math.sin(progress * Math.PI) * GRID_ANIM_HEIGHT;
+          // Animate position and scale
+          m.position.lerpVectors(anim.startPos, anim.endPos, progress);
+          m.position.y += hump;
+          m.scale.lerpVectors(anim.startScale, anim.endScale, progress);
+          if (progress === 1) {
+            // Animation is done, snap to final state and clean up
+            m.position.copy(anim.endPos);
+            m.scale.copy(anim.endScale);
+            m.userData.homeY = anim.endPos.y; // Update homeY for hover
+            delete m.userData.gridAnimation;
+          }
+        }
       });
 
-      /* ——— NEW position-based breathing animation ——— */
+      // --- 2. Original Hover Animation (guarded to not run during transition) ---
+      meshes.current.forEach(m => {
+        if (m.userData.gridAnimation?.isTransitioning) return; // Skip if transitioning
+        const ph = m.userData.ph as number;
+        m.position.y = (m.userData.homeY || 0) +
+          Math.sin(t * 1.2 + ph) * (HOVER_BASE * LAYOUT[rows].scale);
+      });
+
+      // --- 3. Original Selector Breathing Animation ---
       if (selectedRef.current && selectedRef.current.userData.outline) {
         const g = selectedRef.current.userData.outline as THREE.Group;
-        // Calculate a smoothly oscillating value between -1 and 1
-        const pulse = Math.sin(t * 4.8);
-        const distance = pulse * BREATHE_DISTANCE;
-
-        if (g.userData.corners) {
-          // Animate each corner individually
-          g.userData.corners.forEach((cornerData: any) => {
-            const { mesh, basePosition } = cornerData;
-            // Get the direction vector from the center towards the corner
-            const direction = basePosition.clone().normalize();
-            // Move the corner along that vector
-            mesh.position.copy(basePosition).addScaledVector(direction, distance);
-          });
-        }
+        const pulse = 1 + Math.sin(t * 4.8) * BREATHE_DISTANCE;
+        g.scale.set(pulse, pulse, pulse);
       }
 
-      // --- Smooth panning animation ---
+      // --- 4. Smooth Shelf Panning ---
       if (shelf.current) {
         const currentX = shelf.current.position.x;
         const targetX = shelfTargetX.current;
@@ -330,6 +344,26 @@ const theme = useTheme();
           shellDiv.current.style.transform = `translateX(${shelf.current.position.x * pxPerWorld.current}px)`;
         }
       }
+
+      // In the renderLoop, after mesh animation, animate the selector outline if present
+      meshes.current.forEach((m) => {
+        if (!m.userData.isAdd && m.userData.outline) {
+          const outlineGroup = m.userData.outline as THREE.Group;
+          const anim = outlineGroup.userData.gridAnimation;
+          if (anim?.isTransitioning) {
+            const tNow = clock.current.getElapsedTime();
+            const progress = clamp((tNow - anim.startTime) / GRID_ANIM_DURATION, 0, 1);
+            const hump = anim.direction * Math.sin(progress * Math.PI) * GRID_ANIM_HEIGHT;
+            outlineGroup.position.lerpVectors(anim.startPos, anim.endPos, progress);
+            outlineGroup.position.y += hump;
+            if (progress === 1) {
+              outlineGroup.position.copy(anim.endPos);
+              delete outlineGroup.userData.gridAnimation;
+            }
+          }
+        }
+      });
+
       renderer.current.render(scene.current, camera.current);
     };
     renderLoop();
@@ -689,28 +723,66 @@ const theme = useTheme();
     layoutInfo.current.cols = cols;
     const rowW   = cols * itemW + (cols - 1) * gapX + padLeft + padRight;  // world units
     const gridH  = rows * itemH + (rows - 1) * gapY + padTop + padBottom;
-    all.forEach((m, i) => {
-      // Reset scale to idle for all meshes
-      const idleScale = LAYOUT[rows].scale;
-      m.scale.set(idleScale, idleScale, idleScale);
-
-      const r = Math.floor(i / cols);        // row 0…rows-1
-      const c = i % cols;                    // col 0…cols-1
-
+    const layoutTargets = all.map((m, i) => {
+      let r: number, c: number;
+      // The new sorting logic!
+      if (rows === 2) {
+        // For 2 rows, sort into columns first (1,3,5 on top, 2,4,6 on bottom)
+        c = Math.floor(i / rows);
+        r = i % rows;
+      } else {
+        // For 1 row, use standard row-major sorting
+        r = Math.floor(i / cols);
+        c = i % cols;
+      }
       const xOffset = (padLeft - padRight) / 2;
       const x = (c - (cols - 1) / 2) * (itemW + gapX) + xOffset;
       const yOffset = (padTop - padBottom) / 2;
       const y = ((rows - 1) / 2 - r) * (itemH + gapY) - yOffset;
-
-      m.position.set(x, y, 0);
-      m.userData.homeY = y;
-       if (!m.userData.isAdd && m.userData.outline) {
-          const zFront = (m.userData.actualDepth as number) / 2 + 0.01;
-          m.userData.outline.position.set(x, y, zFront);
-          m.userData.outline.visible = selectedRef.current === m;
-       }
-
+      const idleScale = LAYOUT[rows].scale;
+      return {
+        position: new THREE.Vector3(x, y, 0),
+        scale: new THREE.Vector3(idleScale, idleScale, idleScale),
+      };
     });
+
+    if (rowSwitch) {
+      // If the rows changed, trigger the choreographed animation
+      const t = clock.current.getElapsedTime();
+      all.forEach((m, i) => {
+        m.userData.gridAnimation = {
+          isTransitioning: true,
+          startTime: t,
+          startPos: m.position.clone(),
+          endPos: layoutTargets[i].position,
+          startScale: m.scale.clone(),
+          endScale: layoutTargets[i].scale,
+          direction: (i % 2 === 0) ? 1 : -1, // Alternating up/down motion
+        };
+        if (!m.userData.isAdd && m.userData.outline) {
+          const outlineGroup = m.userData.outline as THREE.Group;
+          outlineGroup.userData.gridAnimation = {
+            isTransitioning: true,
+            startTime: t,
+            startPos: outlineGroup.position.clone(),
+            endPos: new THREE.Vector3(layoutTargets[i].position.x, layoutTargets[i].position.y, (m.userData.actualDepth as number) / 2 + 0.01),
+            direction: (i % 2 === 0) ? 1 : -1,
+          };
+        }
+      });
+    } else {
+      // If not switching rows (e.g., initial load), just snap to position
+      all.forEach((m, i) => {
+        m.position.copy(layoutTargets[i].position);
+        m.scale.copy(layoutTargets[i].scale);
+        m.userData.homeY = layoutTargets[i].position.y;
+        if (!m.userData.isAdd && m.userData.outline) {
+          const zFront = (m.userData.actualDepth as number) / 2 + 0.01;
+          m.userData.outline.position.set(layoutTargets[i].position.x, layoutTargets[i].position.y, zFront);
+          m.userData.outline.visible = selectedRef.current === m;
+        }
+      });
+    }
     /* ------------ update camera Z so every grid fits on screen ----------- */
     camera.current.position.z = BOX_H * (rows === 1 ? 3.6 : 6.8);
 
@@ -739,21 +811,22 @@ const theme = useTheme();
     shellDiv.current!.style.width     = `${rowPx + shellRevealPx * 2}px`;
     shellDiv.current!.style.left      = `${leftPx}px`;
     shellDiv.current!.style.transform = '';  // clear previous translateX
-        // slide shell in sync with ThreeJS pan
+    // slide shell in sync with ThreeJS pan
     shellDiv.current!.style.transform =
       `translateX(${shelf.current.position.x * pxPerWorld.current}px)`;
     /* keep selection centred after row-switch */
-    if (selectedRef.current) {
-      // Set the target to the currently selected item's new position
-      const targetX = -selectedRef.current.position.x;
-      shelfTargetX.current = clamp(targetX, bounds.current.min, bounds.current.max);
-    } else {
-      // If there's no selection, just ensure the current target is within the new bounds
-      shelfTargetX.current = clamp(
-        shelfTargetX.current,
-        bounds.current.min,
-        bounds.current.max
-      );
+    if (rowSwitch) {
+      if (selectedRef.current) {
+        // Only update shelfTargetX.current instantly on row switch
+        const targetX = -selectedRef.current.position.x;
+        shelfTargetX.current = clamp(targetX, bounds.current.min, bounds.current.max);
+      } else {
+        shelfTargetX.current = clamp(
+          shelfTargetX.current,
+          bounds.current.min,
+          bounds.current.max
+        );
+      }
     }
     /* Ensure there's always an initial selection – pick the first REAL cover */
     if (!selectedRef.current) {

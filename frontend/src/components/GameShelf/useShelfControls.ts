@@ -36,26 +36,35 @@ export default function useShelfControls(opts: ShelfControlParams) {
     if (!playable.length) return;
 
     const cols = opts.layoutInfo.current.cols;
+    const rows = opts.rows;
     if (cols === 0) return; // Grid not ready
 
     const curIdx = playable.findIndex(m => m === opts.selectedRef.current);
-    // If nothing is selected, default to the first item
     const current = curIdx === -1 ? 0 : curIdx;
-
-    const curRow = Math.floor(current / cols);
-    const curCol = current % cols;
-
     const dir = holdDir.current;
     let nextIdx = current;
 
-    if (dir.x === 1) { // Move Right
-      if (curCol < cols - 1) nextIdx = current + 1;
-    } else if (dir.x === -1) { // Move Left
-      if (curCol > 0) nextIdx = current - 1;
-    } else if (dir.y === 1) { // Move Down
-      nextIdx = current + cols;
-    } else if (dir.y === -1) { // Move Up
-      nextIdx = current - cols;
+    // Handle navigation based on the current layout
+    if (rows === 2) {
+      // 2-Row (Column-Major) Navigation
+      const curCol = Math.floor(current / rows);
+      const curRow = current % rows;
+      if (dir.x === 1) { // Right
+        nextIdx = current + rows;
+      } else if (dir.x === -1) { // Left
+        nextIdx = current - rows;
+      } else if (dir.y === 1) { // Down
+        if (curRow < rows - 1) nextIdx = current + 1;
+      } else if (dir.y === -1) { // Up
+        if (curRow > 0) nextIdx = current - 1;
+      }
+    } else {
+      // 1-Row (Row-Major) Navigation
+      if (dir.x === 1) { // Right
+        nextIdx = current + 1;
+      } else if (dir.x === -1) { // Left
+        nextIdx = current - 1;
+      }
     }
 
     // Make sure the new index is within the valid range of playable items
