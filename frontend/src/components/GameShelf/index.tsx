@@ -96,31 +96,66 @@ const theme = useTheme();
     boxD: number,
     colour = 0xffc14d,
   ) => {
-    if (mesh.userData.outline) return;          // already attached
+    if (mesh.userData.outline) return;
 
-    const group  = new THREE.Group();
-    const len    = Math.min(boxW, boxH) * 0.18; // slimmer, uniform size
-    const thick  = len * 0.30;                  // bar thickness
-    const bevel  = thick * 0.6;                 // nice rounding
-    const barGeo = (w: number, h: number) =>
-      new RoundedBoxGeometry(w, h, boxD * 0.02, 4, bevel);
-    const mat = new THREE.MeshBasicMaterial({ color: colour });
+    const group = new THREE.Group();
+    // Use the new scale constant to control bracket arm length
+    const len = Math.min(boxW, boxH) * SELECTOR_SCALE;
+    const thick = len * 0.30;
+    const cornerRadius = thick;
 
-    const addCorner = (cx: number, cy: number, dx: number, dy: number) => {
-      const h = new THREE.Mesh(barGeo(len,  thick), mat);
-      const v = new THREE.Mesh(barGeo(thick, len ), mat);
-      h.position.set(cx + dx * len / 2, cy, 0);
-      v.position.set(cx,                cy + dy * len / 2, 0);
-      group.add(h, v);
+    const lShape = new THREE.Shape();
+    lShape.moveTo(0, len);
+    lShape.lineTo(0, cornerRadius);
+    lShape.quadraticCurveTo(0, 0, cornerRadius, 0);
+    lShape.lineTo(len, 0);
+    lShape.lineTo(len, thick);
+    lShape.lineTo(cornerRadius, thick);
+    lShape.quadraticCurveTo(thick, thick, thick, cornerRadius);
+    lShape.lineTo(thick, len);
+    lShape.closePath();
+
+    const extrudeSettings = {
+      steps: 1,
+      depth: boxD * 0.02,
+      bevelEnabled: false,
     };
 
-    addCorner(-boxW/2, -boxH/2,  1,  1);   // bottom-left
-    addCorner( boxW/2, -boxH/2, -1,  1);   // bottom-right
-    addCorner( boxW/2,  boxH/2, -1, -1);   // top-right
-    addCorner(-boxW/2,  boxH/2,  1, -1);   // top-left
+    const cornerGeo = new THREE.ExtrudeGeometry(lShape, extrudeSettings);
+    const mat = new THREE.MeshBasicMaterial({
+      color: colour,
+      depthTest: false,
+    });
 
-    group.visible = false;                  // only the selected cover shows it
-    /* mount on shelf so it never inherits cover rotation/scale */
+    // This will store data for our new animation logic
+    group.userData.corners = [];
+
+    // Calculate the padded position to frame the cover
+    const halfW = boxW / 2;
+    const halfH = boxH / 2;
+    // The total offset from the box edge to the selector's outer corner
+    const padding = SELECTOR_PADDING + thick;
+
+    const addCorner = (x: number, y: number, rotation: number) => {
+      const corner = new THREE.Mesh(cornerGeo, mat);
+      corner.position.set(x, y, 0);
+      corner.rotation.z = rotation;
+      corner.renderOrder = 1;
+      group.add(corner);
+      // Store the mesh and its base position for the animation loop
+      group.userData.corners.push({
+        mesh: corner,
+        basePosition: corner.position.clone(),
+      });
+    };
+
+    // Position corners with the new padding
+    addCorner(-halfW - padding, -halfH - padding, 0);
+    addCorner( halfW + padding, -halfH - padding, Math.PI / 2);
+    addCorner( halfW + padding,  halfH + padding, Math.PI);
+    addCorner(-halfW - padding,  halfH + padding, Math.PI * 1.5);
+
+    group.visible = false;
     shelf.current.add(group);
     mesh.userData.outline = group;
   };
@@ -183,10 +218,15 @@ const theme = useTheme();
 
   /* base hover – row-scale is applied in the render-loop */
   const HOVER_BASE = BOX_H * 0.02;
-  /* subtle breathing for the focus frame */
-  const OUTLINE_BREATHE = 0.09;      // ±7 % scale
 
-     const { startHold, stopHold, attach } = useShelfControls({
+  /* --- NEW SELECTOR CONTROLS --- */
+  // Use these to get the exact size and behavior you want.
+  const SELECTOR_SCALE = 0.22;   // Overall size of the brackets (0.22 = 22% of the cover's smallest dimension)
+  const SELECTOR_PADDING = 0.05; // Gap between the game cover and the brackets' inner edge
+  const BREATHE_DISTANCE = 0.04; // How far the brackets move during the animation
+  // (Remove the old OUTLINE_BREATHE constant)
+
+  const { startHold, stopHold, attach } = useShelfControls({
     container,
     camera,
     scene,
@@ -257,12 +297,26 @@ const theme = useTheme();
         m.position.y = (m.userData.homeY || 0) +
          Math.sin(t * 1.2 + ph) * (HOVER_BASE * LAYOUT[rows].scale);
       });
-       /* ——— Nintendo-style breathing corners ——— */
-       if (selectedRef.current && selectedRef.current.userData.outline) {
-         const g = selectedRef.current.userData.outline as THREE.Object3D;
-         const s = 1 + Math.sin(t * 4.8) * OUTLINE_BREATHE;  // ~3 cycles / sec
-         g.scale.set(s, s, s);
+
+      /* ——— NEW position-based breathing animation ——— */
+      if (selectedRef.current && selectedRef.current.userData.outline) {
+        const g = selectedRef.current.userData.outline as THREE.Group;
+        // Calculate a smoothly oscillating value between -1 and 1
+        const pulse = Math.sin(t * 4.8);
+        const distance = pulse * BREATHE_DISTANCE;
+
+        if (g.userData.corners) {
+          // Animate each corner individually
+          g.userData.corners.forEach((cornerData: any) => {
+            const { mesh, basePosition } = cornerData;
+            // Get the direction vector from the center towards the corner
+            const direction = basePosition.clone().normalize();
+            // Move the corner along that vector
+            mesh.position.copy(basePosition).addScaledVector(direction, distance);
+          });
         }
+      }
+
       renderer.current.render(scene.current, camera.current);
     };
     renderLoop();
@@ -277,10 +331,6 @@ const theme = useTheme();
       renderer.current.dispose();
     };
   }, []); // ← run only once on mount
-
-
-
-
   /* 5. TEXTURE LOADING + MESH UPDATE (runs whenever textures **or rows** change) */
   useEffect(() => {
     if (!renderer.current) return;

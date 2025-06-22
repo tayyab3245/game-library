@@ -41,3 +41,4 @@ emulators/*
 roms/*
 !roms/.gitkeep
 /backend/covers
+backend/games.db
