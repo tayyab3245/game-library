@@ -19,7 +19,15 @@ export default function GameManager() {
   const { games, loadGames, API } = useGames();
 
   /* ── theme must come first so later code (incl. CSS-inject hooks) can see it ── */
-  const [themeMode, setThemeMode] = useState<"light" | "dark">("light");
+  // Set dark theme by default on first load
+  const [themeMode, setThemeMode] = useState<"light" | "dark">(() => {
+    // Try to read from localStorage or system, fallback to dark
+    const stored = window.localStorage.getItem('themeMode');
+    if (stored === 'light' || stored === 'dark') return stored;
+    // Optionally, check prefers-color-scheme here if you want system default
+    // if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+    return 'dark';
+  });
   const theme                     = getTheme(themeMode);
 
   /* wipe default browser margin that caused a white border */
