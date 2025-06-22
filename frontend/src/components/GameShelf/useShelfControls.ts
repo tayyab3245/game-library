@@ -21,31 +21,55 @@ export interface ShelfControlParams {
   onSelect?: (idx: number | null) => void;
   onLongPress?: (idx: number) => void;
   hasPlayedBackground: React.MutableRefObject<boolean>;
+  layoutInfo: React.RefObject<{ cols: number }>;
+
 }
 
 export default function useShelfControls(opts: ShelfControlParams) {
   const holdTid = useRef<number | null>(null);
-  const holdDir = useRef<-1 | 1>(1);
+  // holdDir now tracks x and y movement
+  const holdDir = useRef<{ x: -1 | 0 | 1; y: -1 | 0 | 1 }>({ x: 0, y: 0 });
 
-  /* scroll/arrow helper that skips the “+” cube */
+  /* NEW Grid-Aware scroll/arrow helper */
   const STEP = () => {
     const playable = opts.meshes.current.filter(m => !m.userData.isAdd);
     if (!playable.length) return;
 
-    const cur = playable.findIndex(m => m === opts.selectedRef.current);
-    const next = clamp(
-      (cur === -1 ? 0 : cur) + holdDir.current,
-      0,
-      playable.length - 1,
-    );
-    if (next !== cur) {
-      opts.selectMesh(playable[next], true);
-      /* translate back to absolute index for other logic */
-      opts.currentCenterIdx.current = opts.meshes.current.indexOf(playable[next]);
+    const cols = opts.layoutInfo.current.cols;
+    if (cols === 0) return; // Grid not ready
+
+    const curIdx = playable.findIndex(m => m === opts.selectedRef.current);
+    // If nothing is selected, default to the first item
+    const current = curIdx === -1 ? 0 : curIdx;
+
+    const curRow = Math.floor(current / cols);
+    const curCol = current % cols;
+
+    const dir = holdDir.current;
+    let nextIdx = current;
+
+    if (dir.x === 1) { // Move Right
+      if (curCol < cols - 1) nextIdx = current + 1;
+    } else if (dir.x === -1) { // Move Left
+      if (curCol > 0) nextIdx = current - 1;
+    } else if (dir.y === 1) { // Move Down
+      nextIdx = current + cols;
+    } else if (dir.y === -1) { // Move Up
+      nextIdx = current - cols;
+    }
+
+    // Make sure the new index is within the valid range of playable items
+    nextIdx = clamp(nextIdx, 0, playable.length - 1);
+
+    if (nextIdx !== current) {
+      opts.selectMesh(playable[nextIdx], true);
+      opts.currentCenterIdx.current = opts.meshes.current.indexOf(
+        playable[nextIdx]
+      );
     }
   };
 
-  const startHold = (dir: -1 | 1) => {
+  const startHold = (dir: { x: -1 | 0 | 1; y: -1 | 0 | 1 }) => {
     if (holdTid.current !== null) clearInterval(holdTid.current);
     holdDir.current = dir;
     STEP();
@@ -59,13 +83,37 @@ export default function useShelfControls(opts: ShelfControlParams) {
     }
   };
 
+  // 2D nearest-to-center helper
+  const findNearestToCenter = () => {
+    let nearest: (THREE.Mesh & { userData: any }) | null = null;
+    let minDistanceSq = Infinity;
+    const targetX = -opts.shelf.current.position.x;
+    const targetY = 0;
+    opts.meshes.current.forEach((m) => {
+      if ((m as any).userData.isAdd) return;
+      const dx = m.position.x - targetX;
+      const dy = m.position.y - targetY;
+      const dSq = dx * dx + dy * dy;
+      if (dSq < minDistanceSq) {
+        minDistanceSq = dSq;
+        nearest = m as THREE.Mesh & { userData: any };
+      }
+    });
+    return nearest;
+  };
+
   const registerKeyboard = () => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'ArrowLeft') startHold(-1);
-      else if (e.code === 'ArrowRight') startHold(1);
+      // Pass direction vectors to startHold
+      if (e.code === 'ArrowLeft') startHold({ x: -1, y: 0 });
+      else if (e.code === 'ArrowRight') startHold({ x: 1, y: 0 });
+      else if (e.code === 'ArrowUp') startHold({ x: 0, y: -1 });
+      else if (e.code === 'ArrowDown') startHold({ x: 0, y: 1 });
     };
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') stopHold();
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) {
+        stopHold();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
@@ -89,18 +137,12 @@ export default function useShelfControls(opts: ShelfControlParams) {
 
     const clearSelect = () => opts.selectMesh(null);
 
+    // autoSelectCentered uses 2D-aware logic
     const autoSelectCentered = () => {
-      let nearest: THREE.Mesh | null = null;
-      let min = Infinity;
-      opts.meshes.current.forEach((m) => {
-        if (m.userData.isAdd) return;
-        const d = Math.abs(m.position.x + opts.shelf.current.position.x);
-        if (d < min) {
-          min = d;
-          nearest = m;
-        }
-      });
-      if (nearest && nearest !== opts.selectedRef.current) opts.selectMesh(nearest, false);
+      const nearest = findNearestToCenter();
+      if (nearest && nearest !== opts.selectedRef.current) {
+        opts.selectMesh(nearest, false);
+      }
     };
 
     const cancelLong = () => {
@@ -191,19 +233,14 @@ export default function useShelfControls(opts: ShelfControlParams) {
           opts.shellDiv.current.style.transform = `translateX(${shellX * opts.pxPerWorld.current}px)`;
         }
 
-        let nearest = -1,
-          nearestDist = Infinity;
-        opts.meshes.current.forEach((m, idx) => {
-          if (m.userData.isAdd) return;
-          const d = Math.abs(m.position.x + opts.shelf.current.position.x);
-          if (d < nearestDist) {
-            nearestDist = d;
-            nearest = idx;
+        // 2D-aware selection logic
+        const nearestMesh = findNearestToCenter();
+        if (nearestMesh) {
+          const nearestIdx = opts.meshes.current.indexOf(nearestMesh);
+          if (nearestIdx !== -1 && nearestIdx !== opts.currentCenterIdx.current) {
+            SoundManager.playPan();
+            opts.selectMesh(nearestMesh, false);
           }
-        });
-        if (nearest !== -1 && nearest !== opts.currentCenterIdx.current) {
-          SoundManager.playPan();
-          opts.selectMesh(opts.meshes.current[nearest], false);
         }
       }
     };
@@ -217,17 +254,10 @@ export default function useShelfControls(opts: ShelfControlParams) {
       }
 
       if (mode === 'pan') {
-        let nearestIdx = -1,
-          nearestDist = Infinity;
-        opts.meshes.current.forEach((m, idx) => {
-          const d = Math.abs(m.position.x + opts.shelf.current.position.x);
-          if (d < nearestDist) {
-            nearestDist = d;
-            nearestIdx = idx;
-          }
-        });
-        if (!opts.meshes.current[nearestIdx]?.userData.isAdd) {
-          autoSelectCentered();
+        // 2D-aware selection logic
+        const nearestMesh = findNearestToCenter();
+        if (nearestMesh && !(nearestMesh as any).userData.isAdd) {
+          opts.selectMesh(nearestMesh, true);
         }
       }
     };

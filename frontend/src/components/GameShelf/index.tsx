@@ -60,8 +60,10 @@ const theme = useTheme();
   const shelf     = useRef<THREE.Group>(null!);
   const meshes    = useRef<THREE.Mesh[]>([]);
   const selectedRef = useRef<THREE.Mesh | null>(null);
-   const urls      = useRef<string[]>([]);
+  const urls      = useRef<string[]>([]);
   const shellDiv  = useRef<HTMLDivElement>(null);
+  const shelfTargetX = useRef<number>(0); // <-- ADD THIS: Stores the shelf's target X position.
+  const layoutInfo = useRef({ cols: 0 }); // <-- ADD THIS LINE
   /* pixels-per-world-unit at shelf depth (set after each layout pass) */
   const pxPerWorld = useRef<number>(1);
   /* ─ edge-elasticity: 0 = none, 1 = super stretchy ─ */
@@ -176,7 +178,6 @@ const theme = useTheme();
   ) => {
     // clear old
     if (selectedRef.current) {
-      // Reset to idle scale (not 1,1,1)
       const idleScale = LAYOUT[rows].scale;
       selectedRef.current.scale.set(idleScale, idleScale, idleScale);
       selectedRef.current.rotation.y = 0;
@@ -188,19 +189,16 @@ const theme = useTheme();
       onSelect?.(null);
       return;
     }
-  // mark new
-  // Use the base scale (you can tweak this multiplier if you want a bigger “pop”)
-  const selectedScale = LAYOUT[rows].scale * 1.05; // subtle pop
+    // mark new
+    const selectedScale = LAYOUT[rows].scale * 1.05; // subtle pop
     mesh.scale.set(selectedScale, selectedScale, selectedScale);
     const outline = mesh.userData.outline as THREE.Object3D;
     if (outline) outline.visible = true;
 
-    // slide shelf so this mesh is centred (world-X === 0)
-    const worldX = mesh.position.x + shelf.current.position.x;
-    shelf.current.position.x -= worldX;
-      // ++ sync CSS shell on select
-   shellDiv.current!.style.transform =
-     `translateX(${shelf.current.position.x * pxPerWorld.current}px)`;
+    // --- THIS IS THE CORRECTED SECTION ---
+    // Set the target X position. The animation will be handled by the render loop.
+    const targetX = -mesh.position.x;
+    shelfTargetX.current = clamp(targetX, bounds.current.min, bounds.current.max);
 
     // notify
     currentCenterIdx.current = meshes.current.indexOf(mesh);
@@ -224,7 +222,7 @@ const theme = useTheme();
   const SELECTOR_SCALE = 0.22;   // Overall size of the brackets (0.22 = 22% of the cover's smallest dimension)
   const SELECTOR_PADDING = 0.05; // Gap between the game cover and the brackets' inner edge
   const BREATHE_DISTANCE = 0.04; // How far the brackets move during the animation
-  // (Remove the old OUTLINE_BREATHE constant)
+  const PAN_DAMPING = 0.01; // <-- Controls animation speed. Lower is slower/smoother
 
   const { startHold, stopHold, attach } = useShelfControls({
     container,
@@ -243,6 +241,7 @@ const theme = useTheme();
     onSelect,
     onLongPress,
     hasPlayedBackground,
+    layoutInfo, // <-- ADD THIS LINE
   });
 
   /* 4. INIT: scene + camera + pointer + hover  (run only once, on mount)*/
@@ -317,6 +316,20 @@ const theme = useTheme();
         }
       }
 
+      // --- Smooth panning animation ---
+      if (shelf.current) {
+        const currentX = shelf.current.position.x;
+        const targetX = shelfTargetX.current;
+        const diff = targetX - currentX;
+        if (Math.abs(diff) > 0.001) {
+          shelf.current.position.x += diff * PAN_DAMPING;
+        } else {
+          shelf.current.position.x = targetX;
+        }
+        if (shellDiv.current) {
+          shellDiv.current.style.transform = `translateX(${shelf.current.position.x * pxPerWorld.current}px)`;
+        }
+      }
       renderer.current.render(scene.current, camera.current);
     };
     renderLoop();
@@ -404,13 +417,11 @@ const theme = useTheme();
       const scaleW = frontWidthUnits / FRONT_3DS;
       const scaleH = frontHeightUnits / (FULL_H_3DS * HEIGHT_RATIO_3DS);
       const scale  = Math.min(scaleW, scaleH);
-
-      /* active size-multiplier (1-row = 1.0) */
       const mul  = LAYOUT[rows].scale;
       const boxW = FRONT_3DS * scale * WIDTH_FACTOR * mul;
       const boxH = boxW * PANEL_RATIO;                 // derived height
       const boxD = SPINE_3DS * scale * DEPTH_FACTOR * mul;
-        /* gap proportional to cover width (≈ 25 %) */
+      /* gap proportional to cover width (≈ 25 %) */
       /* horizontal gap ≈ 18 % of cover (tighter grid) */
       const GAP_W = boxW * 0.18;      /* horizontal gap ≈ 18 % */
 
@@ -418,32 +429,115 @@ const theme = useTheme();
       let mesh = meshes.current[i];
       const isAdd = url === ADD_MARKER;
       const bevelRadius = Math.min(boxW, boxH) * 0.02;
+      const wasAdd = mesh ? !!mesh.userData.isAdd : isAdd;
 
       if (!mesh) {
         // 1) Create the box itself
-          const geo = isAdd
-            ? new RoundedBoxGeometry(boxW * 0.8, boxW * 0.8, boxD * 0.02, 8, bevelRadius)
-            : new RoundedBoxGeometry(boxW, boxH, boxD, 16, bevelRadius);
-          mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+        const geo = isAdd
+          ? new RoundedBoxGeometry(boxW * 0.8, boxW * 0.8, boxD * 0.02, 8, bevelRadius)
+          : new RoundedBoxGeometry(boxW, boxH, boxD, 16, bevelRadius);
+        mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+        mesh.userData.isAdd = isAdd;          // flag “add” cube
+        mesh.userData.ph    = Math.random() * Math.PI * 2;
+        shelf.current.add(mesh);
+        meshes.current[i]   = mesh;
+        /* leave padding all-round */
+        mesh.userData.padding = bevelRadius * 2;
+        if (!isAdd) {
+          /* draw frame 10 % inside the edge (uniform for all covers) */
+          attachOutline(mesh, boxW * 1.0, boxH * 1.0, boxD);
+          // --- ADD THESE TWO LINES ---
+          mesh.userData.outlineBuiltForW = boxW;
+          mesh.userData.outlineBuiltForH = boxH;
+        }
+      }
 
-          mesh.userData.isAdd = isAdd;          // flag “add” cube
-          mesh.userData.ph    = Math.random() * Math.PI * 2;
-          shelf.current.add(mesh);
-          meshes.current[i]   = mesh;
-
-          /* leave padding all-round */
-          mesh.userData.padding = bevelRadius * 2;
-          if (!isAdd) {
-            /* draw frame 10 % inside the edge (uniform for all covers) */
-            attachOutline(mesh, boxW * 1.0, boxH * 1.0, boxD);
+      // If the role changed (e.g., "+" to cover), swap the geometry to match
+      if (wasAdd !== isAdd) {
+        mesh.geometry.dispose();
+        mesh.geometry = isAdd
+          ? new RoundedBoxGeometry(boxW * 0.8, boxW * 0.8, boxD * 0.1, 8, bevelRadius)
+          : new RoundedBoxGeometry(boxW, boxH, boxD, 16, bevelRadius);
+        mesh.userData.isAdd = isAdd;
+        /* “+” → real cover */
+        if (wasAdd && !isAdd) {
+          disposeMaterial(mesh.material);                
+          mesh.material = new THREE.MeshBasicMaterial({  // temp grey
+            color: 0x444444,
+          });
+          loadWithRetry(url, mesh);
+          /* keep identical inset when a “+” cube becomes a real cover */
+          attachOutline(mesh, boxW, boxH, boxD);
+          mesh.userData.outlineBuiltForW = boxW;
+          mesh.userData.outlineBuiltForH = boxH;
+          mesh.userData.outline.visible = true;
+          selectMesh(mesh, false);
+        }
+        /* real → add  ➜  remove old brackets */
+        if (!wasAdd && isAdd) {
+          if (mesh.userData.outline) {
+            shelf.current.remove(mesh.userData.outline);
+            mesh.userData.outline.traverse((o: any) => {
+              o.material?.dispose?.();
+              o.geometry?.dispose?.();
+            });
+            delete mesh.userData.outline;
           }
         }
+        /* when converting from an “add” cube, build missing brackets only */
+        if (wasAdd && !isAdd) {
+          const sw = boxW * 1.6, sh = boxH * 1.6;
+          const bracketGroup = new THREE.Group();
+          const bracketLength = Math.min(sw, sh) * 0.2;
+          const makeBracket = (cx: number, cy: number) => {
+            const dirX = cx < 0 ? 1 : -1;
+            const dirY = cy < 0 ? 1 : -1;
+            const thickness = bracketLength * 0.2;
+            const depth = thickness;
+            const group = new THREE.Group();
+            const geomH = new RoundedBoxGeometry(bracketLength, thickness, depth, 4, thickness * 0.4);
+            const meshH = new THREE.Mesh(geomH, new THREE.MeshBasicMaterial({ color: 0xffa500 }));
+            meshH.position.set(cx + (dirX * bracketLength) / 2, cy, 0);
+            group.add(meshH);
+            const geomV = new RoundedBoxGeometry(thickness, bracketLength, depth, 4, thickness * 0.4);
+            const meshV = new THREE.Mesh(geomV, new THREE.MeshBasicMaterial({ color: 0xffa500 }));
+            meshV.position.set(cx, cy + (dirY * bracketLength) / 2, 0);
+            group.add(meshV);
+            return group;
+          };
+          bracketGroup.add(makeBracket(-sw / 2, -sh / 2));
+          bracketGroup.add(makeBracket(sw / 2, -sh / 2));
+        }
+      } else {
+        // This block handles existing meshes that are NOT changing type.
+        // We check if their outline is now the wrong size and rebuild it if so.
+        if (!isAdd && mesh.userData.outline) {
+          const outlineNeedsRebuild =
+            mesh.userData.outlineBuiltForW !== boxW ||
+            mesh.userData.outlineBuiltForH !== boxH;
 
-        // Now mesh points to our box; next we’ll update its material (if needed),
-        // and position both box and its shadow in the layout.
-        mesh = meshes.current[i];
-        const wasAdd = !!mesh.userData.isAdd;   // save previous role
-        mesh.userData.isAdd = isAdd;
+          if (outlineNeedsRebuild) {
+            // Remove the old, incorrectly-sized outline
+            const oldOutline = mesh.userData.outline;
+            shelf.current.remove(oldOutline);
+            oldOutline.traverse((o: any) => {
+              o.geometry?.dispose();
+              o.material?.dispose();
+            });
+            // Attach a new one with the correct dimensions
+            attachOutline(mesh, boxW, boxH, boxD);
+            mesh.userData.outlineBuiltForW = boxW;
+            mesh.userData.outlineBuiltForH = boxH;
+          }
+        }
+      }
+
+      // Now mesh points to our box; next we’ll update its material (if needed),
+      // and position both box and its shadow in the layout.
+      mesh = meshes.current[i];
+      // Remove duplicate declaration of wasAdd
+      // const wasAdd = !!mesh.userData.isAdd;   // save previous role
+      mesh.userData.isAdd = isAdd;
 
                 /* remove lingering “+” from a previous add-cube */
         if (wasAdd && !isAdd && mesh.userData.plusBuilt) {
@@ -476,7 +570,9 @@ const theme = useTheme();
            });
            loadWithRetry(url, mesh);
            /* keep identical inset when a “+” cube becomes a real cover */
-           attachOutline(mesh, boxW * 0.9, boxH * 0.9, boxD);
+           attachOutline(mesh, boxW, boxH, boxD);
+           mesh.userData.outlineBuiltForW = boxW;
+           mesh.userData.outlineBuiltForH = boxH;
            mesh.userData.outline.visible = true;
            selectMesh(mesh, false);
          }
@@ -590,6 +686,7 @@ const theme = useTheme();
     const padRight = itemW * cfg.padRight;
 
     const cols   = Math.ceil(all.length / rows);
+    layoutInfo.current.cols = cols;
     const rowW   = cols * itemW + (cols - 1) * gapX + padLeft + padRight;  // world units
     const gridH  = rows * itemH + (rows - 1) * gapY + padTop + padBottom;
     all.forEach((m, i) => {
@@ -647,13 +744,15 @@ const theme = useTheme();
       `translateX(${shelf.current.position.x * pxPerWorld.current}px)`;
     /* keep selection centred after row-switch */
     if (selectedRef.current) {
-      const worldX = selectedRef.current.position.x + shelf.current.position.x;
-      shelf.current.position.x -= worldX;
+      // Set the target to the currently selected item's new position
+      const targetX = -selectedRef.current.position.x;
+      shelfTargetX.current = clamp(targetX, bounds.current.min, bounds.current.max);
     } else {
-      shelf.current.position.x = clamp(
-        shelf.current.position.x,
+      // If there's no selection, just ensure the current target is within the new bounds
+      shelfTargetX.current = clamp(
+        shelfTargetX.current,
         bounds.current.min,
-        bounds.current.max,
+        bounds.current.max
       );
     }
     /* Ensure there's always an initial selection – pick the first REAL cover */
@@ -663,8 +762,8 @@ const theme = useTheme();
     }
     // ----------------------------------------------------------------
     // ++ sync CSS shell after layout
-       shellDiv.current!.style.transform =
-      `translateX(${shelf.current.position.x * pxPerWorld.current}px)`;
+    // shellDiv.current!.style.transform =
+    //   `translateX(${shelf.current.position.x * pxPerWorld.current}px)`;
     /* re-run when textures or row-count change */
   }, [textures, rows, frontWidthUnits, frontHeightUnits]);
 
@@ -679,6 +778,7 @@ const theme = useTheme();
       <div ref={shellDiv} style={shellStyle(theme)} />
       <div
         className="shelf-arrow left"
+        data-ui="true" // <-- ADD THIS ATTRIBUTE
         onPointerDown={(e: React.PointerEvent<HTMLDivElement>) => {
           const el = e.currentTarget as HTMLElement;
           el.classList.add('bounce');
@@ -687,12 +787,13 @@ const theme = useTheme();
           const el = e.currentTarget as HTMLElement;
           el.classList.remove('bounce');
         }}
-        onMouseDown={() => startHold(-1)}
+        onMouseDown={() => startHold({ x: -1, y: 0 })} // FIXED
         onMouseUp={stopHold}
         onMouseLeave={stopHold}
       />
       <div
         className="shelf-arrow right"
+        data-ui="true" // <-- AND ADD IT HERE
         onPointerDown={(e: React.PointerEvent<HTMLDivElement>) => {
           const el = e.currentTarget as HTMLElement;
           el.classList.add('bounce');
@@ -701,7 +802,7 @@ const theme = useTheme();
           const el = e.currentTarget as HTMLElement;
           el.classList.remove('bounce');
         }}
-        onMouseDown={() => startHold(1)}
+        onMouseDown={() => startHold({ x: 1, y: 0 })} // FIXED
         onMouseUp={stopHold}
         onMouseLeave={stopHold}
       />
