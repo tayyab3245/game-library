@@ -12,6 +12,8 @@ import useGames, { Game } from "./hooks/useGames";
 import SoundManager from "./utils/SoundManager";
 import CommandBar from "./components/CommandBar";
 import GridIcon from './components/GridIcon';
+import VolumeButton from './components/VolumeButton';
+type VolumeLevel = 0 | 1 | 2 | 3;
 
 
 
@@ -61,6 +63,11 @@ export default function GameManager() {
   }, []);
   
   const [vw, setVw] = useState(() => window.innerWidth);
+
+  /* ─── master volume (0 – 3) ─── */
+  const [volLevel, setVolLevel] = useState<0 | 1 | 2 | 3>(3);
+  const handleVolChange = (lvl: 0 | 1 | 2 | 3) => setVolLevel(lvl);
+
   useEffect(() => {
     const onResize = () => setVw(window.innerWidth);
     window.addEventListener("resize", onResize);
@@ -277,6 +284,54 @@ useLayoutEffect(()=>{
   transition: all 0.25s ease;
 }
 
+/* ───── Volume button ───── */
+.volume-btn{
+  position:absolute;
+  right:64px;               /* sits just left of the theme button */
+  top:0;
+  height:48px;width:48px;
+  transform:scale(1.5);
+  transform-origin:top right;
+  border:none;
+  border-radius:0 0 0 24px;
+  background:
+    linear-gradient(-35deg,rgba(255,255,255,.07) 0%,transparent 60%),
+    linear-gradient(180deg,${top} 0%,${bot} 100%);
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,0.08),
+    inset 0 -1px 2px rgba(0,0,0,0.4),
+    0 4px 8px rgba(0,0,0,0.3);
+  cursor:pointer;
+  outline:none;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:transform .12s, box-shadow .12s;
+}
+.volume-btn:active{
+  transform:scale(1.45) translateY(2px);
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,0.15),
+    inset 0 -1px 2px rgba(0,0,0,0.45),
+    0 2px 4px rgba(0,0,0,0.25);
+}
+.volume-btn::before,
+.volume-btn::after{
+  content:"";
+  position:absolute;
+  background:currentColor;
+}
+.volume-btn::before{                /* speaker */
+  width:14px;height:16px;
+  clip-path:polygon(0 0,70% 0,100% 25%,100% 75%,70% 100%,0 100%);
+  left:13px;top:16px;
+}
+.volume-btn::after{ left:30px;top:50%;transform:translateY(-50%); }
+@keyframes pulseWave{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}
+.volume-btn[data-level="0"]::after{width:2px;height:22px;transform:translateY(-50%) rotate(-45deg);}
+.volume-btn[data-level="1"]::after{width:6px;height:6px;border:3px solid currentColor;border-left:none;border-bottom:none;border-radius:50%;animation:pulseWave 1s linear infinite;}
+.volume-btn[data-level="2"]::after{width:10px;height:10px;border:3px solid currentColor;border-left:none;border-bottom:none;border-radius:50%;box-shadow:6px -6px 0 0 currentColor;animation:pulseWave 1.2s linear infinite;}
+.volume-btn[data-level="3"]::after{width:12px;height:12px;border:3px solid currentColor;border-left:none;border-bottom:none;border-radius:50%;box-shadow:6px -6px 0 0 currentColor,12px -12px 0 0 currentColor;animation:pulseWave 1.4s linear infinite;}
   `;
   document.head.appendChild(s);return()=>{document.head.removeChild(s);}
 },[theme.mode]);
@@ -358,22 +413,25 @@ useLayoutEffect(()=>{
             </button>
           ))}
         </div>
-        {/* Upper right: theme toggle button, styled as before, now left: 'auto' and right: 0 */}
+        {/* Upper right: theme toggle and volume controls */}
         <div
           className="view-toggle"
           data-ui
           style={{
             position: 'absolute',
             left: 'auto',
-            right: 16,
+            right: 0,
             top: 0,
             flexDirection: 'row-reverse',
             width: 'fit-content',
             borderRadius: '0 0 0 24px',
-            paddingLeft: 0,
-            paddingRight: 0,
-            justifyContent: 'flex-end',
+            paddingLeft: 8,
+            paddingRight: 8,
+            justifyContent: 'flex-start',
             alignItems: 'center',
+            gap: 4,
+            transform: 'scale(1.5)',
+            transformOrigin: 'top right',
           }}
         >
           <button
@@ -386,6 +444,35 @@ useLayoutEffect(()=>{
             }}
           >
             <ThemeToggleControl inline />
+          </button>
+          <button 
+            className="seg"
+            title={volLevel === 0 ? 'Un-mute' : `Volume ${volLevel}/3`}
+            style={{ 
+              color: theme.text,
+              background: 'transparent',
+            }}
+            onPointerUp={() => {
+              handleVolChange((volLevel + 1) % 4 as VolumeLevel);
+              SoundManager.playUISelect();
+            }}
+          >
+            <svg
+              width="22" height="22" viewBox="0 0 24 24" aria-hidden
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+            >
+              {/* — rounded speaker body (filled) — */}
+              <path
+                d="M4 9a1 1 0 0 1 1-1h3.5l4-3a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1l-4-3H5a1 1 0 0 1-1-1V9z"
+                fill="currentColor" stroke="currentColor" strokeLinejoin="round"
+              />
+              {/* — sound waves — */}
+              {volLevel > 0 && <path d="M15 9.2a3 3 0 0 1 0 5.6" fill="none" />}
+              {volLevel > 1 && <path d="M17.5 7a5.5 5.5 0 0 1 0 10" fill="none" />}
+              {volLevel > 2 && <path d="M20 5a8 8 0 0 1 0 14" fill="none" />}
+              {/* — mute slash — */}
+              {volLevel === 0 && <line x1="15" y1="6" x2="22" y2="18" />}
+            </svg>
           </button>
         </div>
         {/* Main content */}
