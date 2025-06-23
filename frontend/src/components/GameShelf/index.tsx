@@ -784,7 +784,7 @@ const theme = useTheme();
       });
     }
     /* ------------ update camera Z so every grid fits on screen ----------- */
-    camera.current.position.z = BOX_H * (rows === 1 ? 5.4 : 6.8);
+    camera.current.position.z = BOX_H * (rows === 1 ? 4.0 : 6.8);
 
     /* pan limits: first & last columns can be centred */
     bounds.current.min = -((cols - 1) / 2) * (itemW + gapX) - padLeft;

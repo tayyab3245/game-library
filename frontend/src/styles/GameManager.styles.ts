@@ -17,7 +17,7 @@ export const getStyles = (t: Theme): StyleMap => ({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: '25vh', // was 0; now ends 25% closer to the command bar
     width: '100vw',
     height: '100vh',
     fontFamily: '"Nunito", sans-serif',
@@ -93,7 +93,6 @@ export const getStyles = (t: Theme): StyleMap => ({
       '.18em .36em .14em -.03em rgba(5,5,5,.25)',
     zIndex: 1000,
     margin: 0,
-    opacity: 0,
     transition: 'opacity 0.2s ease-out',
     willChange: 'opacity, transform',
   },

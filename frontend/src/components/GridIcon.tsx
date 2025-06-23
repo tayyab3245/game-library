@@ -10,7 +10,8 @@ const GridIcon: React.FC<GridIconProps> = ({ mode, filled = false, size = 48 }) 
   /* inherit from parent (CommandBar) which now gets var(--text) */
   const strokeColor = 'currentColor';
   const fillColor   = filled ? 'currentColor' : 'transparent';
-  const strokeWidth = filled ? 1.2 : 1.25;
+  // Increase stroke width for more thickness
+  const strokeWidth = filled ? 2.2 : 2.5;
 
 
   const spacingMap = {
@@ -49,6 +50,7 @@ const GridIcon: React.FC<GridIconProps> = ({ mode, filled = false, size = 48 }) 
           ry={radius}
           fill={fillColor}
           stroke={strokeColor}
+          strokeWidth={strokeWidth}
           shapeRendering="geometricPrecision"
           style={{
             transition: 'all 0.2s ease',

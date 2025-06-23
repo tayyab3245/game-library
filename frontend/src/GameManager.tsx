@@ -321,33 +321,32 @@ useLayoutEffect(()=>{
 
   const styles = getStyles(theme);
 
+  // Patch styles for larger header title and time
+  const bigHeaderTitle = {
+    ...styles.gameTitle,
+    fontSize: 44, // increase as desired
+    lineHeight: 1.1,
+  };
+  const bigDateTime = {
+    ...styles.dateTime,
+    fontSize: 28, // increase as desired
+    fontWeight: 600,
+    letterSpacing: 1,
+  };
+
   return (
     <ThemeProvider theme={theme}>
-      <div
-        style={{ ...styles.container, position: "relative" }}
-      >
-      <div style={styles.header}>
-        <div style={styles.titleWrap}>
-          <h2 style={styles.gameTitle}>{selGame?.title ?? 'Select a game'}</h2>
-          {selGame && (
-            <div style={styles.hours}>
-              {selGame.hoursPlayed} hour{selGame.hoursPlayed === 1 ? '' : 's'} played
-            </div>
-          )}
-        </div>
-        <span style={styles.dateTime}>
-           {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-         </span>
-        {/* ───── View-toggle capsule ───── */}
-        <div className="view-toggle" data-ui>
+      <div style={{ ...styles.container, position: "relative" }}>
+        {/* Upper left: view-toggle buttons, styled as before */}
+        <div className="view-toggle" data-ui style={{ position: 'absolute', left: 0, top: 0 }}>
           {[1, 2].map((r) => (
             <button
               key={r}
               className={`seg ${rowMode === r ? 'active' : ''}`}
               title={`${r === 1 ? 'Single' : r === 2 ? 'Double' : 'Quad'} row`}
-              style={{ color: theme.text }}       // NEW – lets GridIcon inherit
+              style={{ color: theme.text }}
               onPointerUp={() => {
-                setRowMode(r as 1 | 2 );
+                setRowMode(r as 1 | 2);
                 SoundManager.playUISelect();
               }}
             >
@@ -358,69 +357,99 @@ useLayoutEffect(()=>{
               />
             </button>
           ))}
-
-           {/* theme switch — uses same “seg” wrapper for matching style */}
-           <button
-             className="seg"
-             title="Toggle theme"
-             style={{ color: theme.text }}
-             onPointerUp={() => {
-               toggleTheme();
-               SoundManager.playUISelect();
-             }}
-           >
-             <ThemeToggleControl inline />
-           </button>
+        </div>
+        {/* Upper right: theme toggle button, styled as before, now left: 'auto' and right: 0 */}
+        <div
+          className="view-toggle"
+          data-ui
+          style={{
+            position: 'absolute',
+            left: 'auto',
+            right: 16,
+            top: 0,
+            flexDirection: 'row-reverse',
+            width: 'fit-content',
+            borderRadius: '0 0 0 24px',
+            paddingLeft: 0,
+            paddingRight: 0,
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+          }}
+        >
+          <button
+            className="seg"
+            title="Toggle theme"
+            style={{ color: theme.text }}
+            onPointerUp={() => {
+              toggleTheme();
+              SoundManager.playUISelect();
+            }}
+          >
+            <ThemeToggleControl inline />
+          </button>
+        </div>
+        {/* Main content */}
+        <div>
+          <div style={styles.header}>
+            <div style={styles.titleWrap}>
+              <h2 style={bigHeaderTitle}>{selGame?.title ?? 'Select a game'}</h2>
+              {selGame && (
+                <div style={styles.hours}>
+                  {selGame.hoursPlayed} hour{selGame.hoursPlayed === 1 ? '' : 's'} played
+                </div>
+              )}
+            </div>
+            <span style={bigDateTime}>
+              {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+          <div style={{ ...styles.middle, height: SHELF_H }}>
+            <GameShelf
+              textures={[...games.map((g) => `${API}${g.imageUrl}`), ADD_MARKER]}
+              width="100%"
+              height="100%"
+              rows={rowMode}
+              onSelect={handleSelectFromShelf}
+              onLongPress={handleLongPressFromShelf}
+            />
+          </div>
+          {modalOpen && (
+            <AddGameModal
+              key={modalMode + (initialData.title ?? '')}
+              mode={modalMode}
+              initial={initialData}
+              onDelete={() => {
+                if (selIdx !== null) {
+                  SoundManager.playUIBack();
+                  deleteGame(games[selIdx].id);
+                  setModalOpen(false);
+                }
+              }}
+              onSubmit={(data) => {
+                SoundManager.playUISelect();
+                createOrUpdateGame(data);
+              }}
+              onDismiss={() => {
+                SoundManager.playUIBack();
+                setModalOpen(false);
+              }}
+            />
+          )}
+          {/* ────────── Bottom Command Bar ────────── */}
+          <CommandBar
+            canLaunch={canLaunch}
+            editEnabled={selIdx !== null}
+            onLaunch={() => {
+              SoundManager.playUISelect();
+              handleLaunch();
+            }}
+            onEdit={() => {
+              SoundManager.playUISelect();
+              openEditForSelected();
+            }}
+          />
         </div>
       </div>
-        <div style={{ ...styles.middle, height: SHELF_H }}>
-        <GameShelf
-          textures={[...games.map((g) => `${API}${g.imageUrl}`), ADD_MARKER]}
-          width="100%"
-          height="100%"
-          rows={rowMode}
-          onSelect={handleSelectFromShelf}
-          onLongPress={handleLongPressFromShelf}
-        />
-      </div>
-
-      {modalOpen && (
-        <AddGameModal
-          mode={modalMode}
-          initial={initialData}
-            onDelete={() => {
-            if (selIdx !== null) {
-              SoundManager.playUIBack();
-              deleteGame(games[selIdx].id);
-              setModalOpen(false);
-            }
-          }}
-
-          onSubmit={(data) => {
-            SoundManager.playUISelect();
-            createOrUpdateGame(data);
-          }}
-          onDismiss={() => {
-            SoundManager.playUIBack();
-            setModalOpen(false);
-          }}
-        />
-      )}
-            {/* ────────── Bottom Command Bar ────────── */}
-      <CommandBar
-        canLaunch={canLaunch}
-        editEnabled={selIdx !== null}
-        onLaunch={() => {
-          SoundManager.playUISelect();
-          handleLaunch();
-        }}
-        onEdit={() => {
-          SoundManager.playUISelect();
-          openEditForSelected();
-        }}
-      />
-      {/* theme toggle moved into .view-toggle */}
-    </div>
     </ThemeProvider>
   );
 }
